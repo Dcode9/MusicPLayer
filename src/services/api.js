@@ -4,7 +4,7 @@
 
 const API_ENDPOINTS = {
   // Option 1: Try this first (from original problem statement)
-  primary: 'https://saavan-api-psi.vercel.app',
+  primary: 'https://jiosaavn-api-taupe-phi.vercel.app',
   
   // Option 2: Alternative public APIs (try if primary fails)
   fallback1: 'https://jiosaavn-api-privatecvc.vercel.app',
