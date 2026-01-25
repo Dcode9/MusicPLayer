@@ -72,6 +72,44 @@ The production build will be created in the `dist` folder.
 npm run preview
 ```
 
+## 🌐 Deploy to Vercel
+
+This project is configured for easy deployment on Vercel:
+
+### One-Click Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Dcode9/MusicPLayer)
+
+### Manual Deployment
+
+1. Install Vercel CLI (optional):
+```bash
+npm install -g vercel
+```
+
+2. Deploy to Vercel:
+```bash
+vercel
+```
+
+3. For production deployment:
+```bash
+vercel --prod
+```
+
+### Vercel Configuration
+
+The project includes `vercel.json` with optimized settings:
+- **Framework**: Vite (auto-detected)
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **SPA Routing**: Configured with rewrites for React Router
+- **Cache Headers**: Optimized for static assets
+
+### Environment Variables
+
+No environment variables are required. The application uses the public JioSaavn API.
+
 ## 📁 Project Structure
 
 ```
