@@ -11,6 +11,7 @@ const SearchPage = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
   
   const debouncedQuery = useDebounce(query, 500);
@@ -20,16 +21,20 @@ const SearchPage = () => {
     const performSearch = async () => {
       if (!debouncedQuery.trim()) {
         setResults(null);
+        setError(null);
         return;
       }
 
       setLoading(true);
+      setError(null);
       try {
         const data = await api.globalSearch(debouncedQuery);
         setResults(data.data || data);
         addToSearchHistory(debouncedQuery);
       } catch (error) {
         console.error('Search error:', error);
+        setError('Unable to search. The music service may be unavailable. Please try again later.');
+        setResults(null);
       } finally {
         setLoading(false);
       }
@@ -43,6 +48,25 @@ const SearchPage = () => {
   };
 
   const renderResults = () => {
+    if (error) {
+      return (
+        <div className="search-empty">
+          <Icon name="search" size={64} />
+          <h2>Search Unavailable</h2>
+          <p className="text-secondary">{error}</p>
+          <div className="error-hint glass-panel">
+            <p className="text-sm">
+              <strong>Troubleshooting:</strong><br/>
+              • Check your internet connection<br/>
+              • The music service may be temporarily down<br/>
+              • Try again in a few moments<br/>
+              • If the issue persists, the API endpoint may be blocked in your region
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     if (!results) {
       return (
         <div className="search-empty">

@@ -9,6 +9,7 @@ import './HomePage.css';
 const HomePage = () => {
   const [trending, setTrending] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { recentPlays, likedSongs } = usePlayerStore();
 
   useEffect(() => {
@@ -17,8 +18,10 @@ const HomePage = () => {
         // Fetch some popular searches to show as trending
         const result = await api.searchSongs('trending', 1, 20);
         setTrending(result.data?.results || result.results || []);
+        setError(null);
       } catch (error) {
         console.error('Error fetching trending:', error);
+        setError('Unable to connect to music service. Please check your internet connection or try again later.');
       } finally {
         setLoading(false);
       }
@@ -69,11 +72,30 @@ const HomePage = () => {
 
       <section className="home-section">
         <h2>Discover Music</h2>
-        <div className="songs-list">
-          {trending.slice(0, 15).map((song) => (
-            <SongCard key={song.id} song={song} />
-          ))}
-        </div>
+        {error ? (
+          <div className="error-message glass-panel">
+            <Icon name="search" size={48} />
+            <p>{error}</p>
+            <p className="text-tertiary text-sm">
+              The music streaming service may be temporarily unavailable.
+              Try using the Search feature or check back later.
+            </p>
+          </div>
+        ) : trending.length === 0 ? (
+          <div className="empty-message glass-panel">
+            <Icon name="album" size={48} />
+            <p>No music available at the moment</p>
+            <p className="text-tertiary text-sm">
+              Try searching for your favorite songs using the Search page
+            </p>
+          </div>
+        ) : (
+          <div className="songs-list">
+            {trending.slice(0, 15).map((song) => (
+              <SongCard key={song.id} song={song} />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

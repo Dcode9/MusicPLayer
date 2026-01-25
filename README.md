@@ -220,6 +220,88 @@ The UI implements Apple's modern glass design with:
 - Volume normalization
 - Error handling and recovery
 
+## 🔧 Troubleshooting
+
+### Issue: "Nothing works" or API not loading
+
+**The application uses a public JioSaavn API and does NOT require any API keys or environment variables.**
+
+If you're experiencing issues after deployment:
+
+#### 1. Check Browser Console
+Open browser DevTools (F12) and check the Console tab for errors. Common issues:
+
+- **CORS errors**: The JioSaavn API endpoint (`https://saavan-api-psi.vercel.app`) may be temporarily down or blocked
+- **Network errors**: Check your internet connection
+- **Failed to fetch**: API might be rate-limited or unreachable
+
+#### 2. Verify Deployment
+Ensure your Vercel deployment completed successfully:
+```bash
+# Check build logs in Vercel dashboard
+# Build should show: "✓ built in X seconds"
+```
+
+#### 3. Test API Endpoint
+Test if the API is accessible from your location:
+```bash
+curl https://saavan-api-psi.vercel.app/api/search?query=test
+```
+
+If this returns an error, the API endpoint may be down or blocked in your region.
+
+#### 4. Alternative: Use Different API Endpoint
+If the default API is not working, you can modify the API endpoint in `src/services/api.js`:
+
+```javascript
+// Try alternative JioSaavn API endpoints
+const API_BASE_URL = 'https://saavn.dev'; // Alternative endpoint
+```
+
+#### 5. Common Deployment Checklist
+
+- ✅ **No environment variables needed** - The app works out of the box
+- ✅ **Build Command**: `npm run build` (auto-configured)
+- ✅ **Output Directory**: `dist` (auto-configured)
+- ✅ **Framework**: Vite (auto-detected by Vercel)
+- ✅ **Node Version**: Use Node 16+ in Vercel settings if build fails
+
+#### 6. Vercel-Specific Issues
+
+If the app loads but routing doesn't work:
+- Ensure `vercel.json` exists with the rewrite rules (already included)
+- Check Vercel dashboard → Settings → General → Framework Preset is set to "Vite"
+
+If the build fails:
+- Check Vercel build logs for specific errors
+- Ensure dependencies are installed: `npm install` should complete without errors locally
+- Try clearing Vercel cache: Dashboard → Deployments → ⋯ → Redeploy
+
+### Local Development Issues
+
+If the app doesn't work in local development:
+
+```bash
+# 1. Clear node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+
+# 2. Clear Vite cache
+rm -rf node_modules/.vite
+
+# 3. Restart dev server
+npm run dev
+```
+
+### Still Having Issues?
+
+1. **Check API Status**: The JioSaavn API endpoint may have rate limits or temporary outages
+2. **Browser Compatibility**: Use a modern browser (Chrome, Firefox, Safari, Edge - latest versions)
+3. **Ad Blockers**: Some ad blockers may interfere with API calls - try disabling temporarily
+4. **VPN/Proxy**: If using VPN, the API might be blocked in that region
+
+**Note**: The application is fully client-side and requires no backend setup. All features work once the API endpoint is accessible.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
