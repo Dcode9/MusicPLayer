@@ -167,7 +167,7 @@ The application uses a custom Liquid Glass design system with:
 
 This application uses JioSaavn API for music streaming. 
 
-**Current endpoint**: `https://jiosaavn-api-privatecvc.vercel.app` (switched from `saavan-api-psi.vercel.app` due to server issues)
+**Current endpoint**: `https://saavn.dev` (most reliable, switched after testing multiple endpoints)
 
 Features provided by the API:
 
@@ -251,26 +251,28 @@ Ensure your Vercel deployment completed successfully:
 #### 3. Test API Endpoint
 Test if the API is accessible from your location:
 ```bash
-curl https://jiosaavn-api-privatecvc.vercel.app/api/search?query=test
+curl https://saavn.dev/api/search?query=test
 ```
 
 If this returns an error, try alternative endpoints listed below.
 
-#### 4. Switch to Alternative API Endpoint (HTTP 500 Errors)
+#### 4. Switch to Alternative API Endpoint
 
-**UPDATE**: The default API endpoint (`saavan-api-psi.vercel.app`) is currently returning HTTP 500 errors. 
+**UPDATE**: Multiple API endpoints have been tested. The application now uses `https://saavn.dev` as the most reliable endpoint.
 
-The application now uses `https://jiosaavn-api-privatecvc.vercel.app` by default.
+**Known Issues with Other Endpoints:**
+- `saavan-api-psi.vercel.app` - Returns HTTP 500 errors
+- `jiosaavn-api-privatecvc.vercel.app` - CORS errors and 404 responses
 
-If you still encounter issues, you can switch to alternative JioSaavn API endpoints by editing `src/services/api.js`:
+If you encounter issues, you can switch to alternative JioSaavn API endpoints by editing `src/services/api.js`:
 
 ```javascript
 // Available API endpoints (in src/services/api.js)
 const API_ENDPOINTS = {
-  primary: 'https://jiosaavn-api-privatecvc.vercel.app',  // Current default
-  fallback1: 'https://saavn.dev',
-  fallback2: 'https://jiosaavn-api.vercel.app',
-  original: 'https://saavan-api-psi.vercel.app', // Currently down (500 errors)
+  primary: 'https://saavn.dev',  // ✅ Current default (most reliable)
+  fallback1: 'https://jiosaavn-api.vercel.app',
+  fallback2: 'https://jiosaavn-api-privatecvc.vercel.app',  // CORS issues
+  original: 'https://saavan-api-psi.vercel.app', // HTTP 500 errors
 };
 
 // Change this line to use a different endpoint:
