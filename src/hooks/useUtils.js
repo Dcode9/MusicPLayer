@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
 export const useDebounce = (value, delay = 500) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -16,7 +16,7 @@ export const useDebounce = (value, delay = 500) => {
   return debouncedValue;
 };
 
-export const useKeyPress = (targetKey, callback, deps = []) => {
+export const useKeyPress = (targetKey, callback) => {
   useEffect(() => {
     const handleKeyPress = (event) => {
       if (event.key === targetKey || event.code === targetKey) {
@@ -28,7 +28,7 @@ export const useKeyPress = (targetKey, callback, deps = []) => {
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [targetKey, callback, ...deps]);
+  }, [targetKey, callback]);
 };
 
 export const useClickOutside = (ref, callback) => {

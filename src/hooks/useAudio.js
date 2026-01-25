@@ -9,7 +9,6 @@ export const useAudio = () => {
     currentSong,
     isPlaying,
     volume,
-    progress,
     setIsPlaying,
     setProgress,
     setDuration,

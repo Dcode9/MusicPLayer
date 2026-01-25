@@ -7,7 +7,7 @@ import './NowPlaying.css';
 const NowPlaying = ({ onClose }) => {
   const { currentSong, likedSongs, toggleLike } = usePlayerStore();
   const [showLyrics, setShowLyrics] = useState(false);
-  const [lyrics, setLyrics] = useState(null);
+  const [lyrics] = useState(null);
 
   const isLiked = currentSong && likedSongs.some(s => s.id === currentSong.id);
 

@@ -35,7 +35,7 @@ export const usePlayerStore = create(
       setIsPlaying: (isPlaying) => set({ isPlaying }),
       setVolume: (volume) => set({ volume, isMuted: volume === 0 }),
       toggleMute: () => {
-        const { isMuted, volume } = get();
+        const { isMuted } = get();
         set({ isMuted: !isMuted, volume: isMuted ? 1 : 0 });
       },
       setProgress: (progress) => set({ progress }),
