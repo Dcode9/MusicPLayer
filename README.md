@@ -165,12 +165,18 @@ The application uses a custom Liquid Glass design system with:
 
 ## 🌐 API Integration
 
-This application uses the JioSaavn API (`https://saavan-api-psi.vercel.app`) for:
+This application uses JioSaavn API for music streaming. 
+
+**Current endpoint**: `https://jiosaavn-api-privatecvc.vercel.app` (switched from `saavan-api-psi.vercel.app` due to server issues)
+
+Features provided by the API:
 
 - Searching songs, albums, artists, and playlists
 - Fetching song details and streaming URLs
 - Getting song lyrics and recommendations
 - Browsing albums and artist discographies
+
+**No API keys required** - The application works out of the box.
 
 ### API Endpoints Used
 
@@ -245,18 +251,38 @@ Ensure your Vercel deployment completed successfully:
 #### 3. Test API Endpoint
 Test if the API is accessible from your location:
 ```bash
-curl https://saavan-api-psi.vercel.app/api/search?query=test
+curl https://jiosaavn-api-privatecvc.vercel.app/api/search?query=test
 ```
 
-If this returns an error, the API endpoint may be down or blocked in your region.
+If this returns an error, try alternative endpoints listed below.
 
-#### 4. Alternative: Use Different API Endpoint
-If the default API is not working, you can modify the API endpoint in `src/services/api.js`:
+#### 4. Switch to Alternative API Endpoint (HTTP 500 Errors)
+
+**UPDATE**: The default API endpoint (`saavan-api-psi.vercel.app`) is currently returning HTTP 500 errors. 
+
+The application now uses `https://jiosaavn-api-privatecvc.vercel.app` by default.
+
+If you still encounter issues, you can switch to alternative JioSaavn API endpoints by editing `src/services/api.js`:
 
 ```javascript
-// Try alternative JioSaavn API endpoints
-const API_BASE_URL = 'https://saavn.dev'; // Alternative endpoint
+// Available API endpoints (in src/services/api.js)
+const API_ENDPOINTS = {
+  primary: 'https://jiosaavn-api-privatecvc.vercel.app',  // Current default
+  fallback1: 'https://saavn.dev',
+  fallback2: 'https://jiosaavn-api.vercel.app',
+  original: 'https://saavan-api-psi.vercel.app', // Currently down (500 errors)
+};
+
+// Change this line to use a different endpoint:
+const API_BASE_URL = API_ENDPOINTS.fallback1; // Try this if primary fails
 ```
+
+After changing the endpoint:
+1. Save the file
+2. Rebuild: `npm run build`
+3. Redeploy to Vercel
+
+**Note**: All alternative endpoints use the same API structure, so no other code changes are needed.
 
 #### 5. Common Deployment Checklist
 

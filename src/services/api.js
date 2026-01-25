@@ -1,4 +1,14 @@
-const API_BASE_URL = 'https://saavan-api-psi.vercel.app';
+// Alternative JioSaavn API endpoints
+// If one fails, you can try switching to another by changing API_BASE_URL
+const API_ENDPOINTS = {
+  primary: 'https://jiosaavn-api-privatecvc.vercel.app',
+  fallback1: 'https://saavn.dev',
+  fallback2: 'https://jiosaavn-api.vercel.app',
+  original: 'https://saavan-api-psi.vercel.app', // Currently returning 500 errors
+};
+
+// Change this to use a different endpoint if primary fails
+const API_BASE_URL = API_ENDPOINTS.primary;
 
 class ApiService {
   async fetchData(endpoint) {
