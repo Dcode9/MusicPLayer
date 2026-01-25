@@ -1,0 +1,127 @@
+.player-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-fixed);
+  display: grid;
+  grid-template-columns: 300px 1fr 200px;
+  align-items: center;
+  padding: var(--spacing-md);
+  gap: var(--spacing-lg);
+  border-radius: 0;
+  animation: slideIn var(--transition-base);
+}
+
+.player-song-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+}
+
+.player-song-info:hover {
+  background: var(--glass-bg-hover);
+}
+
+.player-album-art {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+.player-song-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.player-song-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.player-song-artist {
+  font-size: var(--font-size-sm);
+}
+
+.player-controls-wrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.player-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+}
+
+.icon-button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: var(--spacing-sm);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.icon-button:hover {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+}
+
+.icon-button.liked {
+  color: var(--color-error);
+}
+
+/* Mobile responsive */
+@media (max-width: 1024px) {
+  .player-bar {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    gap: var(--spacing-sm);
+  }
+
+  .player-song-info {
+    order: 2;
+  }
+
+  .player-controls-wrapper {
+    order: 1;
+  }
+
+  .player-actions {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .player-bar {
+    padding: var(--spacing-sm);
+  }
+
+  .player-album-art {
+    width: 48px;
+    height: 48px;
+  }
+
+  .player-song-title {
+    font-size: var(--font-size-sm);
+  }
+
+  .player-song-artist {
+    font-size: var(--font-size-xs);
+  }
+}

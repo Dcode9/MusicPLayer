@@ -1,0 +1,162 @@
+.player-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+}
+
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--glass-bg);
+  border-radius: var(--radius-full);
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width 100ms linear;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100px;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progress-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.progress-bar:hover .progress-handle {
+  opacity: 1;
+}
+
+.time {
+  min-width: 45px;
+  text-align: center;
+}
+
+.main-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-lg);
+}
+
+.control-button {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: var(--spacing-sm);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.control-button:hover {
+  background: var(--glass-bg-hover);
+  transform: scale(1.1);
+}
+
+.control-button:active {
+  transform: scale(0.95);
+}
+
+.control-button.active {
+  color: var(--color-primary);
+}
+
+.play-button {
+  background: var(--color-primary);
+  color: white;
+  width: 56px;
+  height: 56px;
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.4);
+}
+
+.play-button:hover {
+  background: var(--color-primary);
+  box-shadow: 0 6px 24px rgba(0, 122, 255, 0.5);
+  transform: scale(1.05);
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  max-width: 150px;
+}
+
+.volume-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--glass-bg);
+  border-radius: var(--radius-full);
+  position: relative;
+  cursor: pointer;
+}
+
+.volume-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-fast);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .player-controls {
+    padding: var(--spacing-md);
+    gap: var(--spacing-sm);
+  }
+
+  .main-controls {
+    gap: var(--spacing-md);
+  }
+
+  .play-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .volume-control {
+    max-width: 120px;
+  }
+}
