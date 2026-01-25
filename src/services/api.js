@@ -1,14 +1,27 @@
-// Alternative JioSaavn API endpoints
-// If one fails, you can try switching to another by changing API_BASE_URL
+// JioSaavn API endpoints
+// IMPORTANT: These are third-party hosted APIs that may go down or change
+// If you encounter errors, try these alternatives in order:
+
 const API_ENDPOINTS = {
-  primary: 'https://saavn.dev',  // Most reliable endpoint
-  fallback1: 'https://jiosaavn-api.vercel.app',
-  fallback2: 'https://jiosaavn-api-privatecvc.vercel.app',  // Has CORS issues
-  original: 'https://saavan-api-psi.vercel.app', // Currently returning 500 errors
+  // Option 1: Try this first (from original problem statement)
+  primary: 'https://saavan-api-psi.vercel.app',
+  
+  // Option 2: Alternative public APIs (try if primary fails)
+  fallback1: 'https://jiosaavn-api-privatecvc.vercel.app',
+  fallback2: 'https://saavn.dev',
+  fallback3: 'https://jiosaavn-api.vercel.app',
+  
+  // Self-hosted option: If all public APIs are down, you can deploy your own
+  // using: https://github.com/sumitkolhe/jiosaavn-api
+  // selfHosted: 'https://your-api-domain.vercel.app',
 };
 
-// Change this to use a different endpoint if primary fails
+// Change this line to switch between API endpoints
+// Example: const API_BASE_URL = API_ENDPOINTS.fallback1;
 const API_BASE_URL = API_ENDPOINTS.primary;
+
+// Note: If you're getting ERR_NAME_NOT_RESOLVED or DNS errors, the API endpoint
+// may be down. Try switching to a different endpoint above.
 
 class ApiService {
   async fetchData(endpoint) {

@@ -165,11 +165,41 @@ The application uses a custom Liquid Glass design system with:
 
 ## 🌐 API Integration
 
-This application uses JioSaavn API for music streaming. 
+⚠️ **Important**: This application uses third-party hosted JioSaavn APIs which may occasionally be unavailable.
 
-**Current endpoint**: `https://saavn.dev` (most reliable, switched after testing multiple endpoints)
+**Current endpoint**: `https://saavan-api-psi.vercel.app` (from original specification)
 
-Features provided by the API:
+### 🔄 If You Get API Errors (ERR_NAME_NOT_RESOLVED, Failed to fetch, etc.)
+
+The API endpoint may be down. Here's how to fix it:
+
+**Quick Fix - Try Alternative Endpoints:**
+
+1. Open `src/services/api.js`
+2. On line 20, change the endpoint. Try these in order:
+
+```javascript
+const API_BASE_URL = API_ENDPOINTS.primary;      // Default  
+const API_BASE_URL = API_ENDPOINTS.fallback1;    // Try this first
+const API_BASE_URL = API_ENDPOINTS.fallback2;    // Then this
+const API_BASE_URL = API_ENDPOINTS.fallback3;    // Finally this
+```
+
+3. Rebuild and redeploy:
+```bash
+npm run build
+vercel --prod
+```
+
+**Best Solution - Host Your Own API:**
+
+For maximum reliability, deploy your own JioSaavn API:
+
+1. Fork: https://github.com/sumitkolhe/jiosaavn-api
+2. Deploy to Vercel (free)
+3. Update `API_BASE_URL` in `src/services/api.js` with your URL
+
+### Features Provided by API
 
 - Searching songs, albums, artists, and playlists
 - Fetching song details and streaming URLs
