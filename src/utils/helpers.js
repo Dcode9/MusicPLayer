@@ -94,6 +94,7 @@ export const getDownloadUrl = (song, quality = 'high') => {
       medium: 1,
       high: 2,
       'very-high': 3,
+      extreme: 4,  // 320kbps
     };
     
     // Try the requested quality first
