@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDebounce } from '../../hooks/useUtils';
 import { usePlayerStore } from '../../store/playerStore';
+import { getImageUrl } from '../../utils/helpers';
 import api from '../../services/api';
 import Icon from '../common/Icon';
 import SongCard from '../common/SongCard';
@@ -29,7 +30,10 @@ const SearchPage = () => {
       setError(null);
       try {
         const data = await api.globalSearch(debouncedQuery);
-        setResults(data.data || data);
+        console.log('Search API Response:', data); // Debug log
+        const resultsData = data.data || data;
+        console.log('Search Results:', resultsData); // Debug log
+        setResults(resultsData);
         addToSearchHistory(debouncedQuery);
       } catch (error) {
         console.error('Search error:', error);
@@ -158,7 +162,7 @@ const SearchPage = () => {
                 {results.artists.results.slice(0, 8).map((artist) => (
                   <div key={artist.id} className="artist-card glass-card">
                     <img 
-                      src={artist.image?.[2]?.link || artist.image?.[1]?.link || artist.image} 
+                      src={getImageUrl(artist, 'medium')} 
                       alt={artist.name}
                     />
                     <h3>{artist.name}</h3>
@@ -175,7 +179,7 @@ const SearchPage = () => {
                 {results.playlists.results.slice(0, 8).map((playlist) => (
                   <div key={playlist.id} className="playlist-card glass-card">
                     <img 
-                      src={playlist.image?.[2]?.link || playlist.image?.[1]?.link || playlist.image} 
+                      src={getImageUrl(playlist, 'medium')} 
                       alt={playlist.name || playlist.title}
                     />
                     <h3>{playlist.name || playlist.title}</h3>

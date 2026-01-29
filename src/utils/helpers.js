@@ -23,6 +23,12 @@ export const formatDuration = (seconds) => {
 export const getImageUrl = (song, quality = 'high') => {
   if (!song || !song.image) return null;
   
+  // If image is already a string URL, return it
+  if (typeof song.image === 'string') {
+    return song.image;
+  }
+  
+  // If image is an array of image objects
   if (Array.isArray(song.image)) {
     const qualityMap = {
       low: 0,
@@ -30,10 +36,23 @@ export const getImageUrl = (song, quality = 'high') => {
       high: 2,
     };
     const index = qualityMap[quality] || 2;
-    return song.image[index]?.link || song.image[0]?.link;
+    
+    // Try to get the image at the specified quality
+    const imageObj = song.image[index] || song.image[song.image.length - 1] || song.image[0];
+    
+    // Handle different response formats
+    if (imageObj) {
+      // Check for common URL property names
+      return imageObj.url || imageObj.link || imageObj.src || (typeof imageObj === 'string' ? imageObj : null);
+    }
   }
   
-  return song.image;
+  // If image is an object with a URL property
+  if (typeof song.image === 'object' && song.image !== null) {
+    return song.image.url || song.image.link || song.image.src || null;
+  }
+  
+  return null;
 };
 
 export const extractArtists = (song) => {
@@ -55,23 +74,51 @@ export const extractArtists = (song) => {
 };
 
 export const getDownloadUrl = (song, quality = 'high') => {
-  if (!song || !song.downloadUrl) return null;
+  if (!song) return null;
   
-  if (Array.isArray(song.downloadUrl)) {
-    const qualityMap = {
-      low: 1,
-      medium: 2,
-      high: 4,
-      'very-high': 5,
-    };
-    const index = qualityMap[quality] || 4;
-    return song.downloadUrl[index]?.link || 
-           song.downloadUrl[4]?.link || 
-           song.downloadUrl[3]?.link ||
-           song.downloadUrl[0]?.link;
+  // Check multiple possible property names for download URL
+  const urlSource = song.downloadUrl || song.url || song.media_url || song.streamUrl;
+  
+  if (!urlSource) return null;
+  
+  // If it's already a string URL, return it
+  if (typeof urlSource === 'string') {
+    return urlSource;
   }
   
-  return song.downloadUrl;
+  // If it's an array of download URL objects
+  if (Array.isArray(urlSource)) {
+    const qualityMap = {
+      low: 0,
+      medium: 1,
+      high: 2,
+      'very-high': 3,
+    };
+    
+    // Try the requested quality first
+    const preferredIndex = qualityMap[quality];
+    if (preferredIndex !== undefined && urlSource[preferredIndex]) {
+      const urlObj = urlSource[preferredIndex];
+      const url = urlObj?.url || urlObj?.link || urlObj?.src || (typeof urlObj === 'string' ? urlObj : null);
+      if (url) return url;
+    }
+    
+    // Fallback: try to find any valid URL in the array (highest quality first)
+    for (let i = urlSource.length - 1; i >= 0; i--) {
+      const urlObj = urlSource[i];
+      if (urlObj) {
+        const url = urlObj?.url || urlObj?.link || urlObj?.src || (typeof urlObj === 'string' ? urlObj : null);
+        if (url) return url;
+      }
+    }
+  }
+  
+  // If it's an object with a URL property
+  if (typeof urlSource === 'object' && urlSource !== null) {
+    return urlSource.url || urlSource.link || urlSource.src || null;
+  }
+  
+  return null;
 };
 
 export const extractColors = async (imageUrl) => {
