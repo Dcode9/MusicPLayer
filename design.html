@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Music Player</title>
+    <link rel="icon" href="data:,">
+    
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --angle: 0deg;
+            --album-art-gradient: conic-gradient(from var(--angle), #434343, #000000, #434343);
+            --accent-color: #3ecf8e;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background-color: #030712;
+            color: white;
+        }
+
+        /* --- Dynamic Backgrounds --- */
+        #background-container { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .background-layer { 
+            position: absolute; inset: 0; 
+            transition: opacity 1.5s ease-in-out, background 1.5s ease;
+            will-change: opacity, background; 
+        }
+        #background-playing { opacity: 0; }
+        
+        #ripple-effect {
+            position: absolute; top: 50%; left: 50%;
+            width: 150vmax; height: 150vmax;
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0; filter: blur(80px);
+            transition: transform 0.1s linear, opacity 0.2s ease;
+            pointer-events: none;
+            will-change: transform, opacity;
+        }
+        #ripple-effect.active {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* --- Layout --- */
+        #nav-panel {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        #main-view {
+            background: transparent; 
+            position: relative; 
+            z-index: 10;
+        }
+
+        /* --- Custom Seek Bar & Visualizer --- */
+        #seek-bar-container {
+            position: relative; width: 100%; height: 60px; /* Reduced height */
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.3s;
+            touch-action: none; 
+        }
+        #seek-bar-container.disabled { opacity: 0.3; pointer-events: none; }
+
+        #seek-bar-track {
+            position: absolute; height: 2px; width: 100%;
+            background-color: rgba(255, 255, 255, 0.15); 
+            border-radius: 3px; top: 50%; transform: translateY(-50%);
+            clip-path: inset(0 0 0 0%);
+            transition: height 0.2s;
+            pointer-events: none;
+        }
+        
+        #visualizer-canvas {
+            position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 1;
+            clip-path: inset(0 100% 0 0);
+        }
+        
+        /* Input Range: Only occupies bottom 50% for interaction */
+        input[type="range"]#seek-bar {
+            -webkit-appearance: none; appearance: none;
+            position: absolute; 
+            bottom: 0; left: 0; 
+            width: 100%; height: 50%; /* Only bottom half interactive */
+            background: transparent; outline: none; margin: 0; padding: 0; z-index: 2;
+            cursor: pointer;
+        }
+        
+        /* Custom Thumb (Playhead) - Plain White Dot */
+        input[type="range"]#seek-bar::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 12px; height: 12px; 
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
+            
+            /* Positioning logic: 
+               Input is bottom 50% (30px high). Thumb needs to be centered at the top edge of this input (where the line is).
+               margin-top: -6px pulls it up 50% of its own height.
+               transform pulls it up further to align with the track line. */
+            transform: translateY(-100%); 
+            position: relative;
+        }
+        
+        input[type="range"]#seek-bar:disabled::-webkit-slider-thumb {
+            display: none;
+        }
+        
+        input[type="range"]#seek-bar::-webkit-slider-thumb:hover { 
+            transform: translateY(-100%) scale(1.5); 
+        }
+
+        /* Tooltip */
+        #seek-tooltip {
+            position: absolute;
+            top: -40px; 
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            font-size: 11px;
+            font-family: monospace;
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateX(-50%) translateY(10px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 20;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
+        }
+        #seek-tooltip.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* --- Album Art Effects --- */
+        #album-art-wrapper { transition: transform 0.3s ease; position: relative; }
+        #album-art-wrapper:hover { transform: scale(1.05); }
+        
+        #album-art-glow {
+            position: absolute; 
+            inset: -6px; /* Reduced by ~30% from -10px */
+            z-index: -1;
+            background: var(--album-art-gradient);
+            filter: blur(15px); opacity: 0.8;
+            animation: spin 8s linear infinite;
+            border-radius: 50%;
+            will-change: transform;
+        }
+        @keyframes spin { from { --angle: 0deg; } to { --angle: 360deg; } }
+
+        /* --- Utilities --- */
+        .hidden { display: none !important; }
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .nav-btn.active { background: rgba(255, 255, 255, 0.1); color: white; border-right: 3px solid var(--accent-color); }
+
+        #config-modal { position: fixed; inset:0; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+        
+        /* New Active State for Shuffle/Repeat */
+        button.active-state { color: var(--accent-color); }
+        button.active-state svg { fill: rgba(62, 207, 142, 0.2); }
+    </style>
+</head>
+<body class="paused">
+
+    <div id="background-container">
+        <div id="background-paused" class="background-layer" style="background: rgb(31, 41, 55);"></div>
+        <div id="background-playing" class="background-layer" style="background: rgb(31, 41, 55);"></div>
+        <div id="ripple-effect"></div>
+    </div>
+
+    <!-- Setup Modal -->
+    <div id="config-modal">
+        <div class="bg-gray-900 border border-gray-700 p-8 rounded-2xl shadow-2xl max-w-md w-full">
+            <h2 class="text-2xl font-bold text-green-400 mb-2">Connect Database</h2>
+            <p class="text-gray-400 text-sm mb-4">Enter your Supabase keys to access the library.</p>
+            <input type="text" id="inp-url" placeholder="Supabase Project URL" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-3 focus:outline-none focus:border-green-500">
+            <input type="text" id="inp-key" placeholder="Supabase Anon Key" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-6 focus:outline-none focus:border-green-500">
+            <button onclick="saveManualConfig()" class="w-full bg-green-500 hover:bg-green-600 text-black font-bold py-3 rounded-lg transition">Connect</button>
+        </div>
+    </div>
+
+    <div class="flex h-screen relative z-10">
+        <!-- Sidebar -->
+        <div id="nav-panel" class="w-64 flex-shrink-0 flex flex-col p-6 gap-6 h-full">
+            <div class="flex items-center gap-3 text-2xl font-bold text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-green-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                <span>SpatialPlay</span>
+            </div>
+            
+            <div class="flex flex-col gap-2">
+                <button class="nav-btn active flex items-center gap-4 p-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition" onclick="router.go('home')">Home</button>
+                <button class="nav-btn flex items-center gap-4 p-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition" onclick="router.go('library')">Library</button>
+                <button class="nav-btn flex items-center gap-4 p-3 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition" onclick="router.go('liked')">Liked Songs</button>
+            </div>
+            <div class="mt-auto text-xs text-gray-500">Powered by Supabase</div>
+        </div>
+
+        <!-- Main Content -->
+        <div id="main-view" class="flex-1 overflow-y-auto p-8 pb-48">
+            <div id="view-home" class="view-section active space-y-8">
+                <h2 class="text-3xl font-bold text-white">Recommended</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" id="rec-grid">Loading...</div>
+                <h2 class="text-3xl font-bold text-white">Recent</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" id="recent-grid"></div>
+            </div>
+            <div id="view-library" class="view-section space-y-4">
+                <h2 class="text-3xl font-bold text-white">Full Library</h2>
+                <div id="lib-list" class="space-y-2">Loading...</div>
+            </div>
+            <div id="view-liked" class="view-section space-y-4">
+                <h2 class="text-3xl font-bold text-white">Liked Songs</h2>
+                <div id="liked-list" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PLAYER FOOTER STACK -->
+    <!-- pointer-events-none on container so clicks pass through empty spaces -->
+    <div id="player-footer" class="fixed bottom-6 left-6 right-6 z-50 flex flex-col items-start gap-1 pointer-events-none">
+        
+        <!-- NEW INFO ISLAND (Top Left) -->
+        <!-- pointer-events-auto re-enables clicking on the island -->
+        <div class="bg-black/60 backdrop-blur-3xl border border-white/10 rounded-2xl rounded-b-sm p-3 pr-6 flex items-center gap-3 shadow-2xl transition-all duration-300 pointer-events-auto" id="info-island" style="opacity:0; transform:translateY(10px);">
+            <div id="album-art-wrapper" class="relative w-12 h-12 flex-shrink-0 transition-opacity duration-300">
+                <div id="album-art-glow"></div>
+                <img id="curr-art-img" src="https://placehold.co/300/333/fff?text=Music" class="w-full h-full rounded-full object-cover border border-white/20" crossorigin="anonymous">
+            </div>
+            <div class="overflow-hidden min-w-[100px]">
+                <h3 id="p-title" class="font-bold text-white truncate text-sm">Not Playing</h3>
+                <p id="p-artist" class="text-xs text-gray-400 truncate">Select song</p>
+            </div>
+            <button onclick="player.toggleLike()" id="p-like-btn" class="text-gray-400 hover:text-red-500 transition disabled:opacity-30 ml-2" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            </button>
+        </div>
+
+        <!-- MAIN PLAYER PILL -->
+        <!-- pointer-events-auto re-enables clicking on the player -->
+        <!-- Changed rounded-tr-sm to rounded-tl-sm as requested -->
+        <div class="w-full bg-black/60 backdrop-blur-3xl border border-white/10 rounded-full rounded-tl-sm shadow-2xl p-2 px-4 flex items-center gap-4 transition-all duration-500 h-[72px] pointer-events-auto" id="player-card">
+            
+            <!-- Left Controls: Play, Prev, Next -->
+            <div class="flex items-center gap-4">
+                <button onclick="player.togglePlay()" id="btn-play" class="w-10 h-10 bg-white rounded-full flex-shrink-0 flex items-center justify-center text-black hover:scale-105 transition shadow-lg shadow-white/20 disabled:bg-gray-500 disabled:scale-100 disabled:cursor-not-allowed" disabled>
+                    <span id="icon-play" class="flex ml-1"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span>
+                    <span id="icon-pause" class="hidden"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></span>
+                </button>
+
+                <button class="text-gray-300 hover:text-white disabled:opacity-30 disabled:hover:text-gray-300 flex-shrink-0" onclick="player.prev()" id="btn-prev" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                </button>
+
+                <button class="text-gray-300 hover:text-white disabled:opacity-30 disabled:hover:text-gray-300 flex-shrink-0" onclick="player.next()" id="btn-next" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                </button>
+            </div>
+
+            <!-- Center: Waveform -->
+            <div class="flex-1 h-full relative flex items-center group px-4 border-l border-r border-white/5">
+                <div id="seek-bar-container" class="w-full h-[60px] disabled relative">
+                    <div id="seek-tooltip">0:00</div>
+                    <div id="seek-bar-track"></div>
+                    <canvas id="visualizer-canvas"></canvas>
+                    <input type="range" id="seek-bar" value="0" step="0.1" disabled>
+                </div>
+            </div>
+
+            <!-- Right Controls: Shuffle, Repeat, PiP, Vol -->
+            <div class="flex items-center gap-3">
+                <button class="text-gray-400 hover:text-white disabled:opacity-30 transition" onclick="player.toggleShuffle()" id="btn-shuffle" disabled title="Shuffle">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                </button>
+                <button class="text-gray-400 hover:text-white disabled:opacity-30 transition" onclick="player.toggleRepeat()" id="btn-repeat" disabled title="Repeat">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                </button>
+                <button class="pip-btn text-gray-400 hover:text-white disabled:opacity-30" onclick="pipManager.toggle()" id="btn-pip" disabled title="Mini Player">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="12" y="12" width="6" height="5"></rect></svg>
+                </button>
+                <div class="w-20 hidden md:block">
+                    <input type="range" min="0" max="1" step="0.05" oninput="player.setVolume(this.value)" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Hidden Media Elements -->
+    <audio id="audio-el" crossorigin="anonymous" class="hidden"></audio>
+    <canvas id="pip-canvas" width="500" height="500" class="hidden"></canvas>
+    <video id="pip-video" muted class="fixed top-[-1000px] w-px h-px"></video>
+
+    <script>
+        // --- CONFIGURATION ---
+        let SUPABASE_URL = "YOUR_SUPABASE_URL_HERE"; 
+        let SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
+
+        const FALLBACK_LIB = [
+            { id: 901, name: "APT.", artist: "Rosé & Bruno Mars", img: "https://placehold.co/300/ff69b4/fff?text=APT", url: "https://raw.githubusercontent.com/Dcode9/MPLayer/58e6474295f9ea49d0ea3f3f911cc157988b39b0/APT..m4a" }
+        ];
+
+        let LIBRARY = [];
+        let supabase;
+        const state = { 
+            queue: [], idx: -1, playing: false, loaded: false,
+            likedIds: JSON.parse(localStorage.getItem('likedIds') || '[]'),
+            isDragging: false,
+            hoverProgress: -1,
+            lastHoverProgress: 0.5,
+            shuffle: false,
+            repeat: 0 // 0: off, 1: all, 2: one
+        };
+        
+        let audioContext, analyser, source, isAudioContextInitialized = false;
+        let smoothedLow = 0, smoothedMid = 0, smoothedHigh = 0;
+        let currentProgress = 0;
+        let time = 0;
+        let hoverIntensity = 0; 
+        let visualizerCtx;
+        const colorThief = new ColorThief();
+
+        let lastFrameTime = 0;
+        const FPS_INTERVAL = 1000 / 30;
+
+        document.addEventListener('keydown', (e) => {
+            if(e.target.tagName === 'INPUT') return;
+            switch(e.code) {
+                case 'Space': e.preventDefault(); player.togglePlay(); break;
+                case 'ArrowRight': case 'KeyD': if(audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 5); break;
+                case 'ArrowLeft': case 'KeyA': if(audio.duration) audio.currentTime = Math.max(0, audio.currentTime - 5); break;
+                case 'ArrowUp': case 'KeyW': player.setVolume(Math.min(1, audio.volume + 0.1)); break;
+                case 'ArrowDown': case 'KeyS': player.setVolume(Math.max(0, audio.volume - 0.1)); break;
+            }
+        });
+
+        async function init() {
+            const vCanvas = document.getElementById('visualizer-canvas');
+            visualizerCtx = vCanvas.getContext('2d');
+            resizeVisualizer();
+            window.addEventListener('resize', () => {
+                if(!this.resizeTimeout) {
+                    this.resizeTimeout = setTimeout(() => { resizeVisualizer(); this.resizeTimeout = null; }, 100);
+                }
+            });
+
+            try {
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    if(config.supabaseUrl && config.supabaseKey) {
+                        setupSupabase(config.supabaseUrl, config.supabaseKey);
+                        return;
+                    }
+                }
+                throw new Error("Env API failed");
+            } catch(e) {
+                const storedUrl = localStorage.getItem('sb_url');
+                const storedKey = localStorage.getItem('sb_key');
+                if (!SUPABASE_URL.includes("YOUR_")) {
+                    setupSupabase(SUPABASE_URL, SUPABASE_KEY);
+                } else if(storedUrl && storedKey) {
+                    setupSupabase(storedUrl, storedKey);
+                } else {
+                    document.getElementById('config-modal').style.display = 'flex';
+                    LIBRARY = FALLBACK_LIB;
+                    ui.render();
+                }
+            }
+            ui.initListeners();
+            viz.startLoop();
+        }
+
+        function setupSupabase(url, key) {
+            const { createClient } = window.supabase;
+            supabase = createClient(url, key);
+            fetchSongs();
+        }
+
+        function saveManualConfig() {
+            const url = document.getElementById('inp-url').value.trim();
+            const key = document.getElementById('inp-key').value.trim();
+            if(url && key) {
+                localStorage.setItem('sb_url', url);
+                localStorage.setItem('sb_key', key);
+                location.reload();
+            }
+        }
+
+        async function fetchSongs() {
+            const { data, error } = await supabase.from('songs').select('*').order('id', {ascending: false});
+            if (data && data.length > 0) LIBRARY = data;
+            else LIBRARY = FALLBACK_LIB;
+            
+            LIBRARY = LIBRARY.map(s => {
+                if(s.url.includes('github.com') && !s.url.includes('raw.githubusercontent.com')) {
+                   s.url = s.url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/').replace('/raw/', '/');
+                }
+                return s;
+            });
+            state.queue = [...LIBRARY];
+            ui.render();
+        }
+
+        const audio = document.getElementById('audio-el');
+        audio.onerror = (e) => {
+            if(state.playing) { state.playing = false; ui.updatePlayBtn(); }
+            console.error("Playback error", e);
+        };
+
+        const player = {
+            playTrack: (index) => {
+                if (index < 0 || index >= LIBRARY.length) return;
+                state.idx = index;
+                const track = LIBRARY[index];
+                audio.src = track.url;
+                state.loaded = true;
+                ui.enableControls();
+
+                audio.play().then(() => {
+                    state.playing = true;
+                    ui.updatePlayBtn();
+                    if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+                    if (!isAudioContextInitialized) setupAudioContext();
+                    mediaSessionManager.update(track);
+                    pipManager.drawCanvas(track);
+                    ui.updateMetadata(track);
+                }).catch(e => {
+                    console.error("Play prevented", e);
+                    state.playing = false;
+                    ui.updatePlayBtn();
+                });
+                ui.updateLikeBtn();
+            },
+            togglePlay: () => {
+                if(!state.loaded) { if(LIBRARY.length > 0) player.playTrack(0); return; }
+                if(state.playing) { 
+                    audio.pause(); state.playing = false; 
+                    document.body.classList.remove('playing'); document.body.classList.add('paused');
+                } else { 
+                    audio.play(); state.playing = true; 
+                    if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+                    if (!isAudioContextInitialized) setupAudioContext();
+                    document.body.classList.remove('paused'); document.body.classList.add('playing');
+                }
+                ui.updatePlayBtn();
+                if(navigator.mediaSession) navigator.mediaSession.playbackState = state.playing ? "playing" : "paused";
+            },
+            next: () => { 
+                if(LIBRARY.length === 0) return;
+                let nextIdx;
+                if(state.shuffle) {
+                    nextIdx = Math.floor(Math.random() * LIBRARY.length);
+                } else {
+                    nextIdx = state.idx + 1;
+                    if(nextIdx >= LIBRARY.length) nextIdx = 0;
+                }
+                player.playTrack(nextIdx); 
+            },
+            prev: () => { 
+                if(LIBRARY.length === 0) return;
+                let prevIdx = state.idx - 1;
+                if(prevIdx < 0) prevIdx = LIBRARY.length - 1;
+                player.playTrack(prevIdx); 
+            },
+            setVolume: (val) => { audio.volume = Math.max(0, Math.min(1, val)); },
+            toggleLike: () => {
+                if(state.idx === -1) return;
+                const id = LIBRARY[state.idx].id;
+                const index = state.likedIds.indexOf(id);
+                if(index === -1) state.likedIds.push(id); else state.likedIds.splice(index, 1);
+                localStorage.setItem('likedIds', JSON.stringify(state.likedIds));
+                ui.updateLikeBtn();
+                ui.render();
+            },
+            toggleShuffle: () => {
+                state.shuffle = !state.shuffle;
+                const btn = document.getElementById('btn-shuffle');
+                if(state.shuffle) btn.classList.add('active-state'); else btn.classList.remove('active-state');
+            },
+            toggleRepeat: () => {
+                // 0: none, 1: all, 2: one
+                state.repeat = (state.repeat + 1) % 3;
+                const btn = document.getElementById('btn-repeat');
+                // Simple indicator logic
+                if(state.repeat === 0) btn.classList.remove('active-state');
+                else btn.classList.add('active-state');
+                // You can swap icons here if desired for 'one' vs 'all'
+                audio.loop = (state.repeat === 2);
+            }
+        };
+
+        function setupAudioContext() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                source = audioContext.createMediaElementSource(audio);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                analyser.fftSize = 256; 
+                isAudioContextInitialized = true;
+            } catch(e) { console.warn("WebAudio API missing", e); }
+        }
+
+        function resizeVisualizer() {
+            const container = document.getElementById('seek-bar-container');
+            const canvas = document.getElementById('visualizer-canvas');
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = container.offsetWidth * dpr;
+            canvas.height = container.offsetHeight * dpr;
+            visualizerCtx.scale(dpr, dpr);
+        }
+
+        const viz = {
+            startLoop: () => { requestAnimationFrame(viz.render); },
+            render: (timestamp) => {
+                requestAnimationFrame(viz.render);
+                
+                const elapsed = timestamp - lastFrameTime;
+                if (elapsed < FPS_INTERVAL) return;
+                lastFrameTime = timestamp - (elapsed % FPS_INTERVAL);
+
+                if (!state.loaded) return; 
+
+                const canvas = document.getElementById('visualizer-canvas');
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                const width = canvas.width / dpr;
+                const height = canvas.height / dpr;
+                const centerY = height / 2;
+                
+                visualizerCtx.clearRect(0, 0, width, height);
+                
+                const seekTrack = document.getElementById('seek-bar-track');
+                if(seekTrack) {
+                    const progressWidth = width * currentProgress;
+                    canvas.style.clipPath = `inset(0 ${width - progressWidth}px 0 0)`;
+                    seekTrack.style.clipPath = `inset(0 0 0 ${currentProgress * 100}%)`;
+                }
+
+                time += 0.05; 
+                let targetLow = 0, targetMid = 0, targetHigh = 0;
+
+                if (state.playing && isAudioContextInitialized) {
+                    const bufferLength = analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    targetLow = dataArray.slice(0, 5).reduce((a, b) => a + b, 0) / 5 / 255;
+                    targetMid = dataArray.slice(10, 40).reduce((a, b) => a + b, 0) / 30 / 255;
+                    targetHigh = dataArray.slice(80, 150).reduce((a, b) => a + b, 0) / 70 / 255;
+                    
+                    const rippleBass = dataArray.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
+                    const rippleScale = 1 + (rippleBass / 255) * 0.5;
+                    const ripple = document.getElementById('ripple-effect');
+                    if(ripple) {
+                        ripple.style.transform = `translate(-50%, -50%) scale(${rippleScale})`;
+                        if(state.playing) ripple.classList.add('active');
+                    }
+                }
+
+                // Smoothing
+                smoothedLow += (targetLow - smoothedLow) * 0.1;
+                smoothedMid += (targetMid - smoothedMid) * 0.1;
+                smoothedHigh += (targetHigh - smoothedHigh) * 0.1;
+
+                // --- REMOVED BEAT SCALE (Back to Smooth Morph) ---
+                let verticalScale = 1.0;
+                if (audio.duration > 0) {
+                    const scaleProgress = Math.min(1, currentProgress / 0.4);
+                    verticalScale = (0.3 + 0.7 * scaleProgress) * 0.8;
+                }
+
+                visualizerCtx.beginPath();
+                visualizerCtx.moveTo(0, centerY);
+
+                const waveDensity = 0.03;
+                const maxWaves = 14;
+                const waveCount = Math.min(maxWaves, Math.max(2, (width * currentProgress) * waveDensity));
+                const intensity = audio.volume;
+                
+                const lowPower = Math.pow(smoothedLow, 2.0);
+                const midPower = Math.pow(smoothedMid, 1.5);
+                
+                const isHovering = state.hoverProgress >= 0;
+                const targetHoverInt = isHovering ? 1.0 : 0.0;
+                hoverIntensity += (targetHoverInt - hoverIntensity) * 0.1;
+
+                for (let x = 0; x <= width; x++) {
+                    const localProgress = x / (width * currentProgress || 1);
+                    const taper = Math.sin(localProgress * Math.PI);
+                    
+                    const baseWave = Math.sin((x / width) * waveCount * Math.PI);
+                    const fastWave = Math.sin((x / width) * waveCount * 2.5 * Math.PI + time);
+                    const slowWave = Math.sin((x / width) * waveCount * 0.5 * Math.PI + time * 0.3);
+
+                    const baseAmplitude = (centerY * 0.8) * lowPower * intensity * verticalScale;
+                    const detailAmplitude = (centerY * 0.2) * midPower * intensity * verticalScale;
+
+                    let interactionFactor = 1.0;
+                    if (hoverIntensity > 0.01) {
+                        const posToUse = isHovering ? state.hoverProgress : state.lastHoverProgress;
+                        const hoverX = posToUse * width;
+                        const dist = Math.abs(x - hoverX);
+                        const radius = 60; 
+                        if (dist < radius) {
+                            let t = dist / radius;
+                            let dip = t * t * (3 - 2 * t);
+                            interactionFactor = 1.0 - (hoverIntensity * (1.0 - dip));
+                        }
+                    }
+
+                    const y = centerY +
+                        (baseWave * baseAmplitude +
+                        fastWave * detailAmplitude +
+                        slowWave * detailAmplitude * 0.5) * taper * interactionFactor;
+                    
+                    visualizerCtx.lineTo(x, y);
+                }
+
+                visualizerCtx.lineWidth = 2;
+                visualizerCtx.strokeStyle = '#fff';
+                if(smoothedLow > 0.3) {
+                    visualizerCtx.shadowColor = 'rgba(255, 255, 255, 0.7)';
+                    visualizerCtx.shadowBlur = 4 + smoothedHigh * 5; 
+                } else {
+                    visualizerCtx.shadowBlur = 0;
+                }
+                visualizerCtx.stroke();
+            }
+        };
+
+        const router = {
+            go: (view) => {
+                document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+                const target = document.getElementById('view-'+view);
+                if(target) target.classList.add('active');
+                
+                document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+                const btns = document.querySelectorAll('.nav-btn');
+                if(btns.length >= 3) {
+                    if(view==='home') btns[0].classList.add('active');
+                    if(view==='library') btns[1].classList.add('active');
+                    if(view==='liked') btns[2].classList.add('active');
+                }
+            }
+        };
+
+        const ui = {
+            initListeners: () => {
+                const seekBar = document.getElementById('seek-bar');
+                const container = document.getElementById('seek-bar-container');
+                const tooltip = document.getElementById('seek-tooltip');
+                
+                if(!seekBar || !container) return;
+
+                seekBar.addEventListener('mousedown', () => state.isDragging = true);
+                seekBar.addEventListener('mouseup', () => state.isDragging = false);
+                seekBar.addEventListener('touchstart', () => state.isDragging = true);
+                seekBar.addEventListener('touchend', () => state.isDragging = false);
+                
+                seekBar.addEventListener('input', () => {
+                    if(!audio.duration || isNaN(audio.duration)) return;
+                    audio.currentTime = parseFloat(seekBar.value);
+                    currentProgress = audio.currentTime / audio.duration;
+                });
+
+                container.addEventListener('mousemove', (e) => {
+                    if(!state.loaded || !audio.duration || isNaN(audio.duration)) return;
+                    const rect = container.getBoundingClientRect();
+                    const height = rect.height;
+                    const offsetY = e.clientY - rect.top;
+
+                    // INTERACTION ONLY BOTTOM 50%
+                    if (offsetY < height / 2) {
+                        state.hoverProgress = -1;
+                        if(tooltip) tooltip.classList.remove('visible');
+                        return;
+                    }
+
+                    const progress = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    state.hoverProgress = progress;
+                    state.lastHoverProgress = progress;
+                    
+                    if(tooltip) {
+                        const hoverTime = progress * audio.duration;
+                        const m = Math.floor(hoverTime / 60), s = Math.floor(hoverTime % 60);
+                        tooltip.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+                        tooltip.style.left = `${(e.clientX - rect.left)}px`;
+                        tooltip.classList.add('visible');
+                    }
+                });
+
+                container.addEventListener('mouseleave', () => {
+                    state.hoverProgress = -1;
+                    if(tooltip) tooltip.classList.remove('visible');
+                });
+
+                audio.addEventListener('timeupdate', () => {
+                    if(!audio.duration || isNaN(audio.duration)) return;
+                    if (!state.isDragging) {
+                        seekBar.max = audio.duration;
+                        seekBar.value = audio.currentTime;
+                        currentProgress = audio.currentTime / audio.duration;
+                    }
+                });
+                
+                audio.addEventListener('ended', () => {
+                    if(state.repeat === 2) { // Loop One
+                        audio.currentTime = 0;
+                        audio.play();
+                    } else {
+                        player.next();
+                    }
+                });
+            },
+            enableControls: () => {
+                const els = ['seek-bar-container', 'seek-bar', 'btn-play', 'btn-prev', 'btn-next', 'btn-pip', 'p-like-btn', 'btn-shuffle', 'btn-repeat'];
+                els.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) {
+                        el.classList.remove('disabled');
+                        el.disabled = false;
+                    }
+                });
+                const island = document.getElementById('info-island');
+                if(island) {
+                    island.style.opacity = "1";
+                    island.style.transform = "translateY(0)";
+                }
+            },
+            updateMetadata: (track) => {
+                const title = document.getElementById('p-title');
+                const artist = document.getElementById('p-artist');
+                if(title) title.textContent = track.name;
+                if(artist) artist.textContent = track.artist;
+                
+                const artImg = document.getElementById('curr-art-img');
+                if(artImg) artImg.src = track.img || "https://placehold.co/300/333/fff?text=Music";
+                
+                if (track.img) {
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous";
+                    img.src = track.img;
+                    img.onload = () => {
+                        try {
+                            const palette = colorThief.getPalette(img, 3);
+                            const main = palette[0], sec = palette[1];
+                            const mainColor = `rgb(${main[0]}, ${main[1]}, ${main[2]})`;
+                            const secColor = `rgb(${sec[0]}, ${sec[1]}, ${sec[2]})`;
+                            const darkShade = `rgb(${main[0]*0.2}, ${main[1]*0.2}, ${main[2]*0.2})`;
+                            
+                            const bg = document.getElementById('background-playing');
+                            if(bg) bg.style.background = `radial-gradient(circle at top, ${mainColor}, ${darkShade})`;
+                            const rip = document.getElementById('ripple-effect');
+                            if(rip) rip.style.background = `radial-gradient(circle, ${secColor} 0%, transparent 70%)`;
+                            const glow = document.getElementById('album-art-glow');
+                            if(glow) glow.style.background = `conic-gradient(from 0deg, ${mainColor}, ${secColor}, ${mainColor})`;
+                        } catch(e) {}
+                    };
+                }
+            },
+            render: () => {
+                const recGrid = document.getElementById('rec-grid');
+                if(recGrid) recGrid.innerHTML = LIBRARY.slice(0,4).map(ui.createCard).join('');
+                
+                const recentGrid = document.getElementById('recent-grid');
+                if(recentGrid) recentGrid.innerHTML = LIBRARY.slice(4,8).map(ui.createCard).join('');
+                
+                const libList = document.getElementById('lib-list');
+                if(libList) libList.innerHTML = LIBRARY.map(ui.createRow).join('');
+
+                const likedList = document.getElementById('liked-list');
+                if(likedList) {
+                    const likedTracks = LIBRARY.filter(t => state.likedIds.includes(t.id));
+                    if(likedTracks.length === 0) likedList.innerHTML = '<div class="text-gray-500">No liked songs yet.</div>';
+                    else likedList.innerHTML = likedTracks.map(ui.createRow).join('');
+                }
+            },
+            createCard: (t, i) => `
+                <div class="bg-white/5 hover:bg-white/10 p-4 rounded-xl cursor-pointer transition group" onclick="player.playTrack(${LIBRARY.indexOf(t)})">
+                    <div class="relative aspect-square rounded-lg overflow-hidden mb-3 bg-gray-800 shadow-lg">
+                        <img src="${t.img || 'https://placehold.co/300/333/fff?text=Music'}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                        <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                            <span class="bg-green-500 text-black p-3 rounded-full shadow-xl transform scale-75 group-hover:scale-100 transition"><svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
+                        </div>
+                    </div>
+                    <h3 class="font-bold text-white truncate">${t.name}</h3>
+                    <p class="text-sm text-gray-400 truncate">${t.artist}</p>
+                </div>`,
+            createRow: (t, i) => `
+                <div class="flex items-center gap-4 p-3 rounded-lg hover:bg-white/5 cursor-pointer transition group" onclick="player.playTrack(${LIBRARY.indexOf(t)})">
+                    <span class="text-gray-500 w-6 text-center font-mono text-sm">${i+1}</span>
+                    <img src="${t.img || 'https://placehold.co/100/333/fff?text=M'}" class="w-10 h-10 rounded object-cover">
+                    <div class="flex-1 overflow-hidden">
+                        <h4 class="text-white font-medium truncate ${state.idx === LIBRARY.indexOf(t) ? 'text-green-400' : ''}">${t.name}</h4>
+                        <p class="text-gray-400 text-xs truncate">${t.artist}</p>
+                    </div>
+                    <span class="text-gray-500 text-xs hidden sm:block">3:45</span>
+                </div>`,
+            updatePlayBtn: () => {
+                const isPlaying = state.playing;
+                const playIcon = document.getElementById('icon-play');
+                const pauseIcon = document.getElementById('icon-pause');
+                if(playIcon) playIcon.className = isPlaying ? 'hidden' : 'flex ml-1';
+                if(pauseIcon) pauseIcon.className = isPlaying ? 'flex' : 'hidden';
+                const bgPlaying = document.getElementById('background-playing');
+                if(bgPlaying) bgPlaying.style.opacity = isPlaying ? 1 : 0;
+            },
+            updateLikeBtn: () => {
+                if(state.idx === -1) return;
+                const id = LIBRARY[state.idx].id;
+                const btn = document.getElementById('p-like-btn');
+                if(btn) btn.className = state.likedIds.includes(id) ? 'text-red-500 transition ml-2' : 'text-gray-400 hover:text-red-500 transition ml-2';
+            }
+        };
+
+        const mediaSessionManager = {
+            update: (track) => {
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: track.name, artist: track.artist,
+                        artwork: [{ src: track.img || 'https://placehold.co/512/333/fff?text=Music', sizes: '512x512', type: 'image/png' }]
+                    });
+                    navigator.mediaSession.setActionHandler('play', player.togglePlay);
+                    navigator.mediaSession.setActionHandler('pause', player.togglePlay);
+                    navigator.mediaSession.setActionHandler('previoustrack', player.prev);
+                    navigator.mediaSession.setActionHandler('nexttrack', player.next);
+                }
+            }
+        };
+
+        const pipManager = {
+            video: document.getElementById('pip-video'),
+            canvas: document.getElementById('pip-canvas'),
+            ctx: document.getElementById('pip-canvas').getContext('2d'),
+            toggle: async () => {
+                if (document.pictureInPictureElement) document.exitPictureInPicture();
+                else {
+                    if (state.idx !== -1) pipManager.drawCanvas(LIBRARY[state.idx]);
+                    const stream = pipManager.canvas.captureStream();
+                    pipManager.video.srcObject = stream;
+                    await pipManager.video.play();
+                    try { await pipManager.video.requestPictureInPicture(); } catch(e) { alert("PiP Failed: " + e.message); }
+                }
+            },
+            drawCanvas: (track) => {
+                const ctx = pipManager.ctx;
+                const w = 500, h = 500;
+                ctx.fillStyle = "#111"; ctx.fillRect(0, 0, w, h);
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.src = track.img || 'https://placehold.co/500/333/fff?text=No+Art';
+                img.onload = () => { ctx.drawImage(img, 0, 0, w, w); };
+                ctx.fillStyle = "white"; ctx.font = "bold 40px sans-serif"; ctx.fillText(track.name, 20, 450);
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>
