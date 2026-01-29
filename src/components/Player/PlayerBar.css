@@ -7,12 +7,11 @@
   display: grid;
   grid-template-columns: 280px 1fr 180px;
   align-items: center;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-md);
   gap: var(--spacing-md);
   border-radius: 0;
   animation: slideIn var(--transition-base);
-  min-height: 80px;
-  max-height: 80px;
+  height: 88px;
 }
 
 .player-song-info {
@@ -21,7 +20,7 @@
   gap: var(--spacing-md);
   cursor: pointer;
   transition: all var(--transition-fast);
-  padding: var(--spacing-sm);
+  padding: var(--spacing-xs);
   border-radius: var(--radius-md);
 }
 
@@ -30,8 +29,8 @@
 }
 
 .player-album-art {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   box-shadow: 0 4px 12px var(--shadow-color);
@@ -94,8 +93,7 @@
     grid-template-columns: 1fr;
     grid-template-rows: auto auto;
     gap: var(--spacing-sm);
-    min-height: 120px;
-    max-height: 120px;
+    height: 128px;
     padding: var(--spacing-sm) var(--spacing-md);
   }
 
@@ -115,8 +113,7 @@
 @media (max-width: 768px) {
   .player-bar {
     padding: var(--spacing-sm);
-    min-height: 160px;
-    max-height: 160px;
+    height: 168px;
   }
 
   .player-album-art {

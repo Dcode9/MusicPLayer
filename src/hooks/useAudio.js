@@ -65,6 +65,10 @@ export const useAudio = () => {
       
       const loadAndPlaySong = async () => {
         try {
+          // Pause any currently playing audio first to prevent multiple tracks
+          audio.pause();
+          audio.currentTime = 0;
+          
           // First, try to get the download URL from the current song object
           let songUrl = getDownloadUrl(currentSong, 'high');
           
@@ -90,7 +94,12 @@ export const useAudio = () => {
             audio.src = songUrl;
             setIsReady(false);
             
-            if (isPlaying) {
+            // Load the audio metadata
+            await audio.load();
+            
+            // Only play if isPlaying is true
+            const shouldPlay = usePlayerStore.getState().isPlaying;
+            if (shouldPlay) {
               await audio.play().catch(err => {
                 console.error('Play error:', err);
                 setIsPlaying(false);
@@ -110,7 +119,7 @@ export const useAudio = () => {
       
       loadAndPlaySong();
     }
-  }, [currentSong, addToRecentPlays, isPlaying, setIsPlaying]);
+  }, [currentSong, addToRecentPlays, setIsPlaying]);
 
   // Handle play/pause
   useEffect(() => {
