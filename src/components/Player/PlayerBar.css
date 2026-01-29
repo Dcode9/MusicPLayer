@@ -5,12 +5,14 @@
   right: 0;
   z-index: var(--z-fixed);
   display: grid;
-  grid-template-columns: 300px 1fr 200px;
+  grid-template-columns: 280px 1fr 180px;
   align-items: center;
-  padding: var(--spacing-md);
-  gap: var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  gap: var(--spacing-md);
   border-radius: 0;
   animation: slideIn var(--transition-base);
+  min-height: 80px;
+  max-height: 80px;
 }
 
 .player-song-info {
@@ -28,8 +30,8 @@
 }
 
 .player-album-art {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   box-shadow: 0 4px 12px var(--shadow-color);
@@ -92,6 +94,9 @@
     grid-template-columns: 1fr;
     grid-template-rows: auto auto;
     gap: var(--spacing-sm);
+    min-height: 120px;
+    max-height: 120px;
+    padding: var(--spacing-sm) var(--spacing-md);
   }
 
   .player-song-info {
@@ -110,6 +115,8 @@
 @media (max-width: 768px) {
   .player-bar {
     padding: var(--spacing-sm);
+    min-height: 160px;
+    max-height: 160px;
   }
 
   .player-album-art {

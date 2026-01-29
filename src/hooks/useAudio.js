@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePlayerStore } from '../store/playerStore';
+import { getDownloadUrl } from '../utils/helpers';
 
 export const useAudio = () => {
   const audioRef = useRef(null);
@@ -61,12 +62,8 @@ export const useAudio = () => {
     if (currentSong && audioRef.current) {
       const audio = audioRef.current;
       
-      // Get the download URL from the song data
-      const songUrl = currentSong.downloadUrl?.[4]?.link || 
-                      currentSong.downloadUrl?.[3]?.link || 
-                      currentSong.downloadUrl?.[2]?.link ||
-                      currentSong.downloadUrl?.[1]?.link ||
-                      currentSong.downloadUrl?.[0]?.link;
+      // Use the helper function to get the download URL
+      const songUrl = getDownloadUrl(currentSong, 'high');
       
       if (songUrl) {
         audio.src = songUrl;
@@ -80,6 +77,8 @@ export const useAudio = () => {
         }
         
         addToRecentPlays(currentSong);
+      } else {
+        console.error('No valid audio URL found for song:', currentSong);
       }
     }
   }, [currentSong, addToRecentPlays, isPlaying, setIsPlaying]);
