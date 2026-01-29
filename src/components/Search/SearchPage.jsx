@@ -30,9 +30,7 @@ const SearchPage = () => {
       setError(null);
       try {
         const data = await api.globalSearch(debouncedQuery);
-        console.log('Search API Response:', data); // Debug log
         const resultsData = data.data || data;
-        console.log('Search Results:', resultsData); // Debug log
         setResults(resultsData);
         addToSearchHistory(debouncedQuery);
       } catch (error) {

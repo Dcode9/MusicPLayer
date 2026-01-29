@@ -17,12 +17,7 @@ const HomePage = () => {
       try {
         // Fetch some popular searches to show as trending
         const result = await api.searchSongs('trending', 1, 20);
-        console.log('API Response:', result); // Debug log
         const songs = result.data?.results || result.results || result.data?.songs || result.songs || [];
-        console.log('Extracted songs:', songs); // Debug log
-        if (songs.length > 0) {
-          console.log('First song structure:', songs[0]); // Debug log
-        }
         setTrending(songs);
         setError(null);
       } catch (error) {

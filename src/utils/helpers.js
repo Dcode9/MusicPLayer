@@ -20,6 +20,16 @@ export const formatDuration = (seconds) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+// Helper function to extract URL string from various object formats
+const extractUrlFromObject = (obj) => {
+  if (!obj) return null;
+  if (typeof obj === 'string') return obj;
+  if (typeof obj === 'object') {
+    return obj.url || obj.link || obj.src || null;
+  }
+  return null;
+};
+
 export const getImageUrl = (song, quality = 'high') => {
   if (!song || !song.image) return null;
   
@@ -39,20 +49,11 @@ export const getImageUrl = (song, quality = 'high') => {
     
     // Try to get the image at the specified quality
     const imageObj = song.image[index] || song.image[song.image.length - 1] || song.image[0];
-    
-    // Handle different response formats
-    if (imageObj) {
-      // Check for common URL property names
-      return imageObj.url || imageObj.link || imageObj.src || (typeof imageObj === 'string' ? imageObj : null);
-    }
+    return extractUrlFromObject(imageObj);
   }
   
   // If image is an object with a URL property
-  if (typeof song.image === 'object' && song.image !== null) {
-    return song.image.url || song.image.link || song.image.src || null;
-  }
-  
-  return null;
+  return extractUrlFromObject(song.image);
 };
 
 export const extractArtists = (song) => {
@@ -98,27 +99,19 @@ export const getDownloadUrl = (song, quality = 'high') => {
     // Try the requested quality first
     const preferredIndex = qualityMap[quality];
     if (preferredIndex !== undefined && urlSource[preferredIndex]) {
-      const urlObj = urlSource[preferredIndex];
-      const url = urlObj?.url || urlObj?.link || urlObj?.src || (typeof urlObj === 'string' ? urlObj : null);
+      const url = extractUrlFromObject(urlSource[preferredIndex]);
       if (url) return url;
     }
     
     // Fallback: try to find any valid URL in the array (highest quality first)
     for (let i = urlSource.length - 1; i >= 0; i--) {
-      const urlObj = urlSource[i];
-      if (urlObj) {
-        const url = urlObj?.url || urlObj?.link || urlObj?.src || (typeof urlObj === 'string' ? urlObj : null);
-        if (url) return url;
-      }
+      const url = extractUrlFromObject(urlSource[i]);
+      if (url) return url;
     }
   }
   
   // If it's an object with a URL property
-  if (typeof urlSource === 'object' && urlSource !== null) {
-    return urlSource.url || urlSource.link || urlSource.src || null;
-  }
-  
-  return null;
+  return extractUrlFromObject(urlSource);
 };
 
 export const extractColors = async (imageUrl) => {
