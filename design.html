@@ -98,6 +98,7 @@
             width: 100%; height: 50%; /* Only bottom half interactive */
             background: transparent; outline: none; margin: 0; padding: 0; z-index: 2;
             cursor: pointer;
+            touch-action: none; /* Disable default touch behaviors for precise control */
         }
         
         /* Custom Thumb (Playhead) - Plain White Dot */
@@ -417,6 +418,16 @@
         let hoverIntensity = 0; 
         let visualizerCtx;
         const colorThief = new ColorThief();
+
+        // Constants for media controls and PiP
+        const DEFAULT_SEEK_OFFSET = 10; // seconds
+        const MAX_TRACK_NAME_LENGTH = 30;
+        const PIP_CANVAS = {
+            WIDTH: 500,
+            HEIGHT: 500,
+            PADDING: 50,
+            ALBUM_SIZE: 400
+        };
 
         let lastFrameTime = 0;
         const FPS_INTERVAL = 1000 / 30;
@@ -797,7 +808,8 @@
                 seekBar.addEventListener('mouseup', () => state.isDragging = false);
                 seekBar.addEventListener('touchstart', (e) => {
                     state.isDragging = true;
-                    e.preventDefault(); // Prevent scrolling while dragging
+                    // Only prevent default when directly interacting with the seek bar
+                    // This allows normal scrolling elsewhere on the page
                 });
                 seekBar.addEventListener('touchend', () => state.isDragging = false);
                 
@@ -1024,11 +1036,11 @@
                     
                     // Seek controls for Dynamic Island and lock screen
                     navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-                        const skipTime = details.seekOffset || 10;
+                        const skipTime = details.seekOffset || DEFAULT_SEEK_OFFSET;
                         audio.currentTime = Math.max(0, audio.currentTime - skipTime);
                     });
                     navigator.mediaSession.setActionHandler('seekforward', (details) => {
-                        const skipTime = details.seekOffset || 10;
+                        const skipTime = details.seekOffset || DEFAULT_SEEK_OFFSET;
                         audio.currentTime = Math.min(audio.duration, audio.currentTime + skipTime);
                     });
                     navigator.mediaSession.setActionHandler('seekto', (details) => {
@@ -1099,7 +1111,10 @@
             },
             drawCanvas: (track) => {
                 const ctx = pipManager.ctx;
-                const w = 500, h = 500;
+                const w = PIP_CANVAS.WIDTH;
+                const h = PIP_CANVAS.HEIGHT;
+                const padding = PIP_CANVAS.PADDING;
+                const albumSize = PIP_CANVAS.ALBUM_SIZE;
                 
                 // Background
                 ctx.fillStyle = "#111"; 
@@ -1110,7 +1125,7 @@
                 img.crossOrigin = "anonymous";
                 img.src = track.img || 'https://placehold.co/500/333/fff?text=No+Art';
                 img.onload = () => { 
-                    ctx.drawImage(img, 50, 50, 400, 400); 
+                    ctx.drawImage(img, padding, padding, albumSize, albumSize); 
                 };
                 
                 // Progress bar
@@ -1119,7 +1134,7 @@
                     const barY = 460;
                     const barHeight = 4;
                     const barWidth = 400;
-                    const barX = 50;
+                    const barX = padding;
                     
                     // Background bar
                     ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
@@ -1134,7 +1149,10 @@
                 ctx.fillStyle = "white"; 
                 ctx.font = "bold 24px sans-serif"; 
                 ctx.textAlign = "center";
-                ctx.fillText(track.name.length > 30 ? track.name.substring(0, 30) + '...' : track.name, 250, 485);
+                const displayName = track.name.length > MAX_TRACK_NAME_LENGTH 
+                    ? track.name.substring(0, MAX_TRACK_NAME_LENGTH) + '...' 
+                    : track.name;
+                ctx.fillText(displayName, 250, 485);
                 
                 ctx.font = "16px sans-serif";
                 ctx.fillStyle = "rgba(255, 255, 255, 0.7)";

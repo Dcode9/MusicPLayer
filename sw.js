@@ -42,8 +42,17 @@ self.addEventListener('fetch', (event) => {
           return response;
         }
         return fetch(event.request);
-      }
-    )
+      })
+      .catch(() => {
+        // Network request failed, could return offline page here
+        return new Response('Offline - Please check your connection', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: new Headers({
+            'Content-Type': 'text/plain'
+          })
+        });
+      })
   );
 });
 
