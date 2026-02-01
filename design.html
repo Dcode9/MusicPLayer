@@ -2,9 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Cloud Music Player</title>
     <link rel="icon" href="data:,">
+    <link rel="manifest" href="/manifest.json">
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -176,6 +180,84 @@
         /* New Active State for Shuffle/Repeat */
         button.active-state { color: var(--accent-color); }
         button.active-state svg { fill: rgba(62, 207, 142, 0.2); }
+
+        /* --- Mobile Optimizations --- */
+        @media (max-width: 768px) {
+            #nav-panel { 
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                height: auto;
+                flex-direction: row;
+                justify-content: space-around;
+                padding: 1rem;
+                z-index: 40;
+                border-right: none;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            
+            #main-view {
+                padding: 1rem;
+                padding-bottom: 200px; /* Space for nav + player */
+                margin-bottom: 0;
+            }
+            
+            #player-footer {
+                bottom: 70px; /* Above mobile nav */
+                left: 1rem;
+                right: 1rem;
+            }
+            
+            #info-island {
+                padding: 0.5rem 1rem;
+            }
+            
+            #player-card {
+                flex-direction: column;
+                height: auto;
+                padding: 1rem;
+                gap: 1rem;
+            }
+            
+            .nav-btn {
+                flex-direction: column;
+                padding: 0.5rem;
+                gap: 0.25rem;
+                font-size: 0.75rem;
+                border-right: none !important;
+                border-bottom: 2px solid transparent;
+            }
+            
+            .nav-btn.active {
+                border-bottom-color: var(--accent-color);
+                background: transparent;
+            }
+            
+            #seek-bar-container {
+                width: 100%;
+            }
+            
+            .grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #album-art-wrapper {
+                width: 40px;
+                height: 40px;
+            }
+            
+            #p-title {
+                font-size: 0.875rem;
+            }
+            
+            #p-artist {
+                font-size: 0.75rem;
+            }
+        }
     </style>
 </head>
 <body class="paused">
@@ -350,7 +432,33 @@
             }
         });
 
+        // Handle visibility changes to maintain background playback
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Page is hidden - ensure audio continues
+                if (state.playing && audioContext && audioContext.state === 'running') {
+                    // Keep playing
+                    console.log('App in background, maintaining playback');
+                }
+            } else {
+                // Page is visible again
+                if (state.playing && audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+            }
+        });
+
         async function init() {
+            // Register service worker for background playback
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registration = await navigator.serviceWorker.register('/sw.js');
+                    console.log('Service Worker registered:', registration);
+                } catch(e) {
+                    console.log('Service Worker registration failed:', e);
+                }
+            }
+
             const vCanvas = document.getElementById('visualizer-canvas');
             visualizerCtx = vCanvas.getContext('2d');
             resizeVisualizer();
@@ -419,6 +527,17 @@
         }
 
         const audio = document.getElementById('audio-el');
+        
+        // Enable background playback on iOS
+        audio.addEventListener('loadedmetadata', () => {
+            // Request audio session for background playback on iOS
+            if ('AudioContext' in window || 'webkitAudioContext' in window) {
+                if (!isAudioContextInitialized && state.playing) {
+                    setupAudioContext();
+                }
+            }
+        });
+        
         audio.onerror = (e) => {
             if(state.playing) { state.playing = false; ui.updatePlayBtn(); }
             console.error("Playback error", e);
@@ -439,6 +558,7 @@
                     if (audioContext && audioContext.state === 'suspended') audioContext.resume();
                     if (!isAudioContextInitialized) setupAudioContext();
                     mediaSessionManager.update(track);
+                    mediaSessionManager.updatePosition();
                     pipManager.drawCanvas(track);
                     ui.updateMetadata(track);
                 }).catch(e => {
@@ -460,7 +580,10 @@
                     document.body.classList.remove('paused'); document.body.classList.add('playing');
                 }
                 ui.updatePlayBtn();
-                if(navigator.mediaSession) navigator.mediaSession.playbackState = state.playing ? "playing" : "paused";
+                if(navigator.mediaSession) {
+                    navigator.mediaSession.playbackState = state.playing ? "playing" : "paused";
+                    mediaSessionManager.updatePosition();
+                }
             },
             next: () => { 
                 if(LIBRARY.length === 0) return;
@@ -669,15 +792,46 @@
                 
                 if(!seekBar || !container) return;
 
+                // Enhanced touch support for mobile
                 seekBar.addEventListener('mousedown', () => state.isDragging = true);
                 seekBar.addEventListener('mouseup', () => state.isDragging = false);
-                seekBar.addEventListener('touchstart', () => state.isDragging = true);
+                seekBar.addEventListener('touchstart', (e) => {
+                    state.isDragging = true;
+                    e.preventDefault(); // Prevent scrolling while dragging
+                });
                 seekBar.addEventListener('touchend', () => state.isDragging = false);
                 
                 seekBar.addEventListener('input', () => {
                     if(!audio.duration || isNaN(audio.duration)) return;
                     audio.currentTime = parseFloat(seekBar.value);
                     currentProgress = audio.currentTime / audio.duration;
+                });
+
+                // Touch move handler for tooltip on mobile
+                container.addEventListener('touchmove', (e) => {
+                    if(!state.loaded || !audio.duration || isNaN(audio.duration)) return;
+                    const touch = e.touches[0];
+                    const rect = container.getBoundingClientRect();
+                    const height = rect.height;
+                    const offsetY = touch.clientY - rect.top;
+
+                    if (offsetY < height / 2) {
+                        state.hoverProgress = -1;
+                        if(tooltip) tooltip.classList.remove('visible');
+                        return;
+                    }
+
+                    const progress = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+                    state.hoverProgress = progress;
+                    state.lastHoverProgress = progress;
+                    
+                    if(tooltip) {
+                        const hoverTime = progress * audio.duration;
+                        const m = Math.floor(hoverTime / 60), s = Math.floor(hoverTime % 60);
+                        tooltip.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+                        tooltip.style.left = `${(touch.clientX - rect.left)}px`;
+                        tooltip.classList.add('visible');
+                    }
                 });
 
                 container.addEventListener('mousemove', (e) => {
@@ -711,6 +865,11 @@
                     if(tooltip) tooltip.classList.remove('visible');
                 });
 
+                container.addEventListener('touchend', () => {
+                    state.hoverProgress = -1;
+                    if(tooltip) tooltip.classList.remove('visible');
+                });
+
                 audio.addEventListener('timeupdate', () => {
                     if(!audio.duration || isNaN(audio.duration)) return;
                     if (!state.isDragging) {
@@ -718,6 +877,8 @@
                         seekBar.value = audio.currentTime;
                         currentProgress = audio.currentTime / audio.duration;
                     }
+                    // Update media session position for lock screen/Dynamic Island
+                    mediaSessionManager.updatePosition();
                 });
                 
                 audio.addEventListener('ended', () => {
@@ -834,13 +995,65 @@
             update: (track) => {
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.metadata = new MediaMetadata({
-                        title: track.name, artist: track.artist,
-                        artwork: [{ src: track.img || 'https://placehold.co/512/333/fff?text=Music', sizes: '512x512', type: 'image/png' }]
+                        title: track.name, 
+                        artist: track.artist,
+                        album: 'SpatialPlay',
+                        artwork: [
+                            { src: track.img || 'https://placehold.co/96/333/fff?text=Music', sizes: '96x96', type: 'image/png' },
+                            { src: track.img || 'https://placehold.co/128/333/fff?text=Music', sizes: '128x128', type: 'image/png' },
+                            { src: track.img || 'https://placehold.co/192/333/fff?text=Music', sizes: '192x192', type: 'image/png' },
+                            { src: track.img || 'https://placehold.co/256/333/fff?text=Music', sizes: '256x256', type: 'image/png' },
+                            { src: track.img || 'https://placehold.co/384/333/fff?text=Music', sizes: '384x384', type: 'image/png' },
+                            { src: track.img || 'https://placehold.co/512/333/fff?text=Music', sizes: '512x512', type: 'image/png' }
+                        ]
                     });
-                    navigator.mediaSession.setActionHandler('play', player.togglePlay);
-                    navigator.mediaSession.setActionHandler('pause', player.togglePlay);
+                    
+                    // Basic controls
+                    navigator.mediaSession.setActionHandler('play', () => {
+                        audio.play();
+                        state.playing = true;
+                        ui.updatePlayBtn();
+                    });
+                    navigator.mediaSession.setActionHandler('pause', () => {
+                        audio.pause();
+                        state.playing = false;
+                        ui.updatePlayBtn();
+                    });
                     navigator.mediaSession.setActionHandler('previoustrack', player.prev);
                     navigator.mediaSession.setActionHandler('nexttrack', player.next);
+                    
+                    // Seek controls for Dynamic Island and lock screen
+                    navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+                        const skipTime = details.seekOffset || 10;
+                        audio.currentTime = Math.max(0, audio.currentTime - skipTime);
+                    });
+                    navigator.mediaSession.setActionHandler('seekforward', (details) => {
+                        const skipTime = details.seekOffset || 10;
+                        audio.currentTime = Math.min(audio.duration, audio.currentTime + skipTime);
+                    });
+                    navigator.mediaSession.setActionHandler('seekto', (details) => {
+                        if (details.fastSeek && 'fastSeek' in audio) {
+                            audio.fastSeek(details.seekTime);
+                        } else {
+                            audio.currentTime = details.seekTime;
+                        }
+                    });
+                    
+                    // Update playback state
+                    navigator.mediaSession.playbackState = state.playing ? "playing" : "paused";
+                }
+            },
+            updatePosition: () => {
+                if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession && audio.duration) {
+                    try {
+                        navigator.mediaSession.setPositionState({
+                            duration: audio.duration,
+                            playbackRate: audio.playbackRate,
+                            position: audio.currentTime
+                        });
+                    } catch(e) {
+                        // Ignore errors on unsupported platforms
+                    }
                 }
             }
         };
@@ -849,25 +1062,113 @@
             video: document.getElementById('pip-video'),
             canvas: document.getElementById('pip-canvas'),
             ctx: document.getElementById('pip-canvas').getContext('2d'),
+            animationFrame: null,
             toggle: async () => {
-                if (document.pictureInPictureElement) document.exitPictureInPicture();
-                else {
-                    if (state.idx !== -1) pipManager.drawCanvas(LIBRARY[state.idx]);
-                    const stream = pipManager.canvas.captureStream();
-                    pipManager.video.srcObject = stream;
-                    await pipManager.video.play();
-                    try { await pipManager.video.requestPictureInPicture(); } catch(e) { alert("PiP Failed: " + e.message); }
+                if (document.pictureInPictureElement) {
+                    document.exitPictureInPicture();
+                    if(pipManager.animationFrame) {
+                        cancelAnimationFrame(pipManager.animationFrame);
+                        pipManager.animationFrame = null;
+                    }
+                } else {
+                    if (state.idx !== -1) {
+                        pipManager.startDrawing();
+                        const stream = pipManager.canvas.captureStream(30);
+                        pipManager.video.srcObject = stream;
+                        await pipManager.video.play();
+                        try { 
+                            await pipManager.video.requestPictureInPicture(); 
+                        } catch(e) { 
+                            alert("PiP Failed: " + e.message); 
+                            if(pipManager.animationFrame) {
+                                cancelAnimationFrame(pipManager.animationFrame);
+                                pipManager.animationFrame = null;
+                            }
+                        }
+                    }
                 }
+            },
+            startDrawing: () => {
+                const draw = () => {
+                    if(state.idx !== -1) {
+                        pipManager.drawCanvas(LIBRARY[state.idx]);
+                    }
+                    pipManager.animationFrame = requestAnimationFrame(draw);
+                };
+                draw();
             },
             drawCanvas: (track) => {
                 const ctx = pipManager.ctx;
                 const w = 500, h = 500;
-                ctx.fillStyle = "#111"; ctx.fillRect(0, 0, w, h);
+                
+                // Background
+                ctx.fillStyle = "#111"; 
+                ctx.fillRect(0, 0, w, h);
+                
+                // Album Art
                 const img = new Image();
                 img.crossOrigin = "anonymous";
                 img.src = track.img || 'https://placehold.co/500/333/fff?text=No+Art';
-                img.onload = () => { ctx.drawImage(img, 0, 0, w, w); };
-                ctx.fillStyle = "white"; ctx.font = "bold 40px sans-serif"; ctx.fillText(track.name, 20, 450);
+                img.onload = () => { 
+                    ctx.drawImage(img, 50, 50, 400, 400); 
+                };
+                
+                // Progress bar
+                if(audio.duration && !isNaN(audio.duration)) {
+                    const progress = audio.currentTime / audio.duration;
+                    const barY = 460;
+                    const barHeight = 4;
+                    const barWidth = 400;
+                    const barX = 50;
+                    
+                    // Background bar
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                    ctx.fillRect(barX, barY, barWidth, barHeight);
+                    
+                    // Progress bar
+                    ctx.fillStyle = "#3ecf8e";
+                    ctx.fillRect(barX, barY, barWidth * progress, barHeight);
+                }
+                
+                // Track info
+                ctx.fillStyle = "white"; 
+                ctx.font = "bold 24px sans-serif"; 
+                ctx.textAlign = "center";
+                ctx.fillText(track.name.length > 30 ? track.name.substring(0, 30) + '...' : track.name, 250, 485);
+                
+                ctx.font = "16px sans-serif";
+                ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+                ctx.fillText(track.artist, 250, 505);
+                
+                // Time display
+                if(audio.duration && !isNaN(audio.duration)) {
+                    const currentM = Math.floor(audio.currentTime / 60);
+                    const currentS = Math.floor(audio.currentTime % 60);
+                    const durationM = Math.floor(audio.duration / 60);
+                    const durationS = Math.floor(audio.duration % 60);
+                    const timeStr = `${currentM}:${currentS.toString().padStart(2, '0')} / ${durationM}:${durationS.toString().padStart(2, '0')}`;
+                    
+                    ctx.font = "12px monospace";
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+                    ctx.textAlign = "center";
+                    ctx.fillText(timeStr, 250, 475);
+                }
+                
+                // Play/Pause indicator
+                ctx.fillStyle = state.playing ? "#3ecf8e" : "rgba(255, 255, 255, 0.7)";
+                if(state.playing) {
+                    // Pause icon
+                    ctx.fillRect(235, 20, 8, 20);
+                    ctx.fillRect(257, 20, 8, 20);
+                } else {
+                    // Play icon
+                    ctx.beginPath();
+                    ctx.moveTo(240, 20);
+                    ctx.lineTo(240, 40);
+                    ctx.lineTo(260, 30);
+                    ctx.closePath();
+                    ctx.fill();
+                }
             }
         };
 
