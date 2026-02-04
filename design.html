@@ -1060,7 +1060,13 @@
         let time = 0;
         let hoverIntensity = 0; 
         let visualizerCtx;
-        const colorThief = new ColorThief();
+        let colorThief;
+        try {
+            colorThief = new ColorThief();
+        } catch(e) {
+            console.warn('ColorThief not available, color extraction disabled');
+            colorThief = { getPalette: () => [[100, 100, 100], [80, 80, 80]] };
+        }
 
         // Constants for media controls and PiP
         const DEFAULT_SEEK_OFFSET = 10; // seconds
