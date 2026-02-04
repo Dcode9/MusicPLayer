@@ -1078,6 +1078,10 @@
             ALBUM_SIZE: 400
         };
 
+        // Autoplay algorithm constants
+        const AUTOPLAY_RANDOMNESS_WEIGHT = 30;
+        const MAX_PLAY_HISTORY = 50;
+
         let lastFrameTime = 0;
         const FPS_INTERVAL = 1000 / 30;
 
@@ -1282,7 +1286,7 @@
                             const main = palette[0];
                             const dark = `rgb(${Math.floor(main[0] * 0.3)}, ${Math.floor(main[1] * 0.3)}, ${Math.floor(main[2] * 0.3)})`;
                             expandedBg.style.background = `linear-gradient(180deg, rgb(${main[0]}, ${main[1]}, ${main[2]}) 0%, ${dark} 100%)`;
-                        } catch (e) {}
+                        } catch (e) { console.warn('Failed to extract colors for expanded player:', e); }
                     };
                 }
             },
@@ -1404,7 +1408,7 @@
                     }
 
                     // Add some randomness
-                    score += Math.random() * 30;
+                    score += Math.random() * AUTOPLAY_RANDOMNESS_WEIGHT;
 
                     return { track, idx, score };
                 });
@@ -1561,8 +1565,8 @@
                 // Add to play history
                 if (state.idx !== -1 && LIBRARY[state.idx]) {
                     state.playHistory.push(LIBRARY[state.idx]);
-                    // Keep history limited to last 50 tracks
-                    if (state.playHistory.length > 50) {
+                    // Keep history limited
+                    if (state.playHistory.length > MAX_PLAY_HISTORY) {
                         state.playHistory.shift();
                     }
                 }
@@ -1978,7 +1982,7 @@
                             if(rip) rip.style.background = `radial-gradient(circle, ${secColor} 0%, transparent 70%)`;
                             const glow = document.getElementById('album-art-glow');
                             if(glow) glow.style.background = `conic-gradient(from 0deg, ${mainColor}, ${secColor}, ${mainColor})`;
-                        } catch(e) {}
+                        } catch(e) { console.warn('Failed to extract colors:', e); }
                     };
                 }
             },
