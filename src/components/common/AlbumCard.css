@@ -1,0 +1,49 @@
+.album-card {
+  cursor: pointer;
+  transition: all var(--transition-base);
+  text-align: left;
+}
+
+.album-card:hover {
+  transform: translateY(-8px);
+}
+
+.album-card-image {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: var(--spacing-md);
+  box-shadow: 0 4px 16px var(--shadow-color);
+  transition: box-shadow var(--transition-base);
+}
+
+.album-card:hover .album-card-image {
+  box-shadow: 0 8px 32px var(--shadow-color);
+}
+
+.album-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.album-card-info {
+  padding: 0 var(--spacing-xs);
+}
+
+.album-card-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.album-card-artist {
+  font-size: var(--font-size-sm);
+  margin-bottom: 2px;
+}
+
+.album-card-year {
+  font-size: var(--font-size-xs);
+}

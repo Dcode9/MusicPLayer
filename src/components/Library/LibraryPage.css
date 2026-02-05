@@ -1,0 +1,125 @@
+.library-page {
+  padding: var(--spacing-2xl);
+  overflow-y: auto;
+  height: 100%;
+}
+
+.library-header {
+  margin-bottom: var(--spacing-2xl);
+}
+
+.library-header h1 {
+  font-size: var(--font-size-4xl);
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+  background: linear-gradient(135deg, var(--text-primary), var(--color-primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.library-section {
+  margin-bottom: var(--spacing-2xl);
+  padding: var(--spacing-xl);
+  animation: fadeIn var(--transition-base);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.section-header h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  flex: 1;
+}
+
+.badge {
+  background: var(--glass-bg-hover);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.songs-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.playlists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.playlist-card {
+  padding: var(--spacing-xl);
+  text-align: center;
+}
+
+.playlist-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-bg-hover);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+}
+
+.playlist-card h3 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs);
+}
+
+.playlist-card p {
+  font-size: var(--font-size-sm);
+}
+
+.library-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--spacing-2xl);
+  gap: var(--spacing-md);
+  min-height: 400px;
+}
+
+.library-empty h2 {
+  font-size: var(--font-size-3xl);
+  margin-top: var(--spacing-lg);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .library-page {
+    padding: var(--spacing-lg);
+  }
+
+  .library-header h1 {
+    font-size: var(--font-size-3xl);
+  }
+
+  .library-section {
+    padding: var(--spacing-md);
+  }
+
+  .section-header h2 {
+    font-size: var(--font-size-xl);
+  }
+
+  .playlists-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--spacing-md);
+  }
+}
