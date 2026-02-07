@@ -2,7 +2,7 @@
   "name": "SpatialPlay Music Player",
   "short_name": "SpatialPlay",
   "description": "Cloud-based music player with spatial audio visualization",
-  "start_url": "/design.html",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#030712",
   "theme_color": "#3ecf8e",
@@ -25,7 +25,7 @@
       "name": "Play Music",
       "short_name": "Play",
       "description": "Start playing music",
-      "url": "/design.html",
+      "url": "/index.html",
       "icons": [{ "src": "https://placehold.co/96/3ecf8e/fff?text=Play", "sizes": "96x96" }]
     }
   ]

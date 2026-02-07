@@ -1,7 +1,7 @@
 // Service Worker for Background Audio Playback
 const CACHE_NAME = 'music-player-v1';
 const urlsToCache = [
-  '/design.html',
+  '/index.html',
   '/'
 ];
 
