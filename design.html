@@ -1149,7 +1149,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <input type="text" id="desktop-search-input" placeholder='Search songs, artists... (Press "/" to focus)' class="bg-transparent outline-none text-white w-full" />
+                        <input type="text" id="desktop-search-input" placeholder="Search songs, artists... (Press &quot;/&quot; to focus)" class="bg-transparent outline-none text-white w-full" />
                     </div>
                     <div id="search-results" class="search-results-container"></div>
                 </div>
@@ -1298,6 +1298,13 @@
         const FALLBACK_LIB = [
             { id: 901, name: "APT.", artist: "Rosé & Bruno Mars", img: "https://placehold.co/300/ff69b4/fff?text=APT", url: "https://raw.githubusercontent.com/Dcode9/MPLayer/58e6474295f9ea49d0ea3f3f911cc157988b39b0/APT..m4a" }
         ];
+        
+        // UI Constants
+        const TEXT_SCROLL_SPEED_FACTOR = 30; // Lower = faster scroll
+        const QUICK_PICKS_COUNT = 16;
+        const RECENTLY_PLAYED_MAX = 16;
+        const MAX_PLAY_HISTORY = 50;
+        const AUTOPLAY_RANDOMNESS_WEIGHT = 30;
 
         let LIBRARY = [];
         let supabase;
@@ -1340,10 +1347,6 @@
             PADDING: 50,
             ALBUM_SIZE: 400
         };
-
-        // Autoplay algorithm constants
-        const AUTOPLAY_RANDOMNESS_WEIGHT = 30;
-        const MAX_PLAY_HISTORY = 50;
 
         let lastFrameTime = 0;
         const FPS_INTERVAL = 1000 / 30;
@@ -2119,7 +2122,7 @@
                 
                 if(textWidth > containerWidth) {
                     element.classList.remove('no-slide');
-                    const duration = Math.max(8, textWidth / 30); // Adjust speed
+                    const duration = Math.max(8, textWidth / TEXT_SCROLL_SPEED_FACTOR);
                     element.style.animationDuration = `${duration}s`;
                 } else {
                     element.classList.add('no-slide');
@@ -2168,9 +2171,9 @@
                     return { track, score };
                 });
                 
-                // Sort by score and take top 16
+                // Sort by score and take top N
                 scored.sort((a, b) => b.score - a.score);
-                return scored.slice(0, 16).map(s => s.track);
+                return scored.slice(0, QUICK_PICKS_COUNT).map(s => s.track);
             }
         };
 
@@ -2187,9 +2190,9 @@
                 // Add to beginning
                 state.recentlyPlayed.unshift(track);
                 
-                // Keep only last 16
-                if(state.recentlyPlayed.length > 16) {
-                    state.recentlyPlayed = state.recentlyPlayed.slice(0, 16);
+                // Keep only last N
+                if(state.recentlyPlayed.length > RECENTLY_PLAYED_MAX) {
+                    state.recentlyPlayed = state.recentlyPlayed.slice(0, RECENTLY_PLAYED_MAX);
                 }
                 
                 // Save to localStorage
