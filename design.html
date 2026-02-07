@@ -1300,7 +1300,7 @@
         ];
         
         // UI Constants
-        const TEXT_SCROLL_SPEED_FACTOR = 30; // Lower = faster scroll
+        const TEXT_SCROLL_SPEED_FACTOR = 30; // Higher = slower scroll (duration = textWidth / factor)
         const QUICK_PICKS_COUNT = 16;
         const RECENTLY_PLAYED_MAX = 16;
         const MAX_PLAY_HISTORY = 50;
@@ -1308,6 +1308,8 @@
 
         let LIBRARY = [];
         let supabase;
+        let trackIndexMap = new Map(); // Global map for O(1) track-to-index lookups
+        
         const state = { 
             queue: [], idx: -1, playing: false, loaded: false,
             likedIds: JSON.parse(localStorage.getItem('likedIds') || '[]'),
@@ -1760,6 +1762,7 @@
                 } else {
                     document.getElementById('config-modal').style.display = 'flex';
                     LIBRARY = FALLBACK_LIB;
+                    updateTrackIndexMap();
                     ui.render();
                 }
             }
@@ -1820,8 +1823,20 @@
                 }
                 return s;
             });
+            
+            // Update global track index map
+            updateTrackIndexMap();
+            
             state.queue = [...LIBRARY];
             ui.render();
+        }
+        
+        // Helper function to update the global track index map
+        function updateTrackIndexMap() {
+            trackIndexMap.clear();
+            LIBRARY.forEach((track, index) => {
+                trackIndexMap.set(track, index);
+            });
         }
 
         const audio = document.getElementById('audio-el');
@@ -2260,12 +2275,6 @@
                     return;
                 }
                 
-                // Create track index map for O(1) lookups
-                const trackIndexMap = new Map();
-                LIBRARY.forEach((track, index) => {
-                    trackIndexMap.set(track, index);
-                });
-                
                 const results = LIBRARY.filter(t => 
                     t.name.toLowerCase().includes(searchManager.currentQuery) || 
                     t.artist.toLowerCase().includes(searchManager.currentQuery)
@@ -2343,7 +2352,9 @@
                 );
                 
                 if(results.length > 0) {
-                    player.playTrack(LIBRARY.indexOf(results[0]));
+                    const topResult = results[0];
+                    const trackIndex = trackIndexMap.get(topResult) ?? 0;
+                    player.playTrack(trackIndex);
                     searchManager.clear();
                     document.getElementById('desktop-search-input')?.blur();
                 }
@@ -2495,18 +2506,19 @@
                 if(title) title.textContent = playlist.name;
                 
                 if(list) {
-                    // Sync liked songs playlist with liked IDs (only if necessary)
+                    // Sync liked songs playlist with liked IDs (done in toggleLike, not here)
+                    // Only sync if playlist doesn't match current liked IDs
                     if(id === 'liked-songs') {
                         const likedIdsSet = new Set(state.likedIds);
-                        playlist.tracks = LIBRARY.filter(t => likedIdsSet.has(t.id));
-                        playlistManager.save();
+                        const currentTrackIds = new Set(playlist.tracks.map(t => t.id));
+                        const needsSync = state.likedIds.length !== playlist.tracks.length || 
+                                        !state.likedIds.every(id => currentTrackIds.has(id));
+                        
+                        if(needsSync) {
+                            playlist.tracks = LIBRARY.filter(t => likedIdsSet.has(t.id));
+                            playlistManager.save();
+                        }
                     }
-                    
-                    // Create track index map for O(1) lookups
-                    const trackIndexMap = new Map();
-                    LIBRARY.forEach((track, index) => {
-                        trackIndexMap.set(track, index);
-                    });
                     
                     if(playlist.tracks.length === 0) {
                         list.innerHTML = '<div class="text-gray-500">No songs in this playlist yet.</div>';
@@ -2515,7 +2527,7 @@
                             <div class="flex items-center gap-4 p-3 rounded-lg hover:bg-white/5 cursor-pointer transition group">
                                 <span class="text-gray-500 w-6 text-center font-mono text-sm">${i+1}</span>
                                 <img src="${t.img || 'https://placehold.co/100/333/fff?text=M'}" class="w-10 h-10 rounded object-cover" onclick="event.stopPropagation(); player.playTrack(${trackIndexMap.get(t) ?? 0})">
-                                <div class="flex-1 overflow-hidden" onclick="player.playTrack(${LIBRARY.indexOf(t)})">
+                                <div class="flex-1 overflow-hidden" onclick="player.playTrack(${trackIndexMap.get(t) ?? 0})">
                                     <h4 class="text-white font-medium truncate">${t.name}</h4>
                                     <p class="text-gray-400 text-xs truncate">${t.artist}</p>
                                 </div>
